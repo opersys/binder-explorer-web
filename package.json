@@ -1,0 +1,26 @@
+{
+    "name": "binder-explorer",
+    "version": "0.0.1",
+    "private": true,
+    "scripts": {
+        "start": "node-android app.js"
+    },
+    "dependencies": {
+        "express": "*",
+        "express-busboy": "*",
+        "serve-static": "*",
+        "morgan": "*",
+        "queue": "*",
+        "underscore": "*"
+    },
+    "devDependencies": {
+        "grunt": "~0.4.2",
+        "grunt-bower-requirejs": "*",
+        "grunt-bower-concat": "*",
+        "grunt-bower": "*",
+        "grunt-mkdir": "*",
+        "grunt-contrib-copy": "*",
+
+        "grunt-auto-install": "/home/neumann/Work/grunt-auto-install"
+    }
+}

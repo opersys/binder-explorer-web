@@ -1,0 +1,27 @@
+{
+  "name": "binder-explorer-web",
+  "version": "0.0.0",
+  "authors": [
+    "François-Denis Gonthier <fdgonthier@lostwebsite.net>"
+  ],
+  "moduleType": [
+    "amd"
+  ],
+  "license": "MIT",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "w2ui": "1.4.2",
+    "sigma.js": "git@github.com:fdgonthier/sigma-bower.git",
+    "jquery": "2.1.1",
+    "backbone": "1.1.2",
+    "underscore": "1.7.0",
+    "jquery-timer": "*"
+  }
+}
