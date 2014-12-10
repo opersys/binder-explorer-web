@@ -1,7 +1,7 @@
 requirejs.config({
     shim: {
         "w2ui": {
-            deps: ["jquery/jquery"],
+            deps: ["jquery"],
             exports: "w2ui"
         },
         "sigma": {
@@ -13,17 +13,23 @@ requirejs.config({
         "sigma.plugins.dragNodes": {
             deps: ["sigma"]
         },
-        "jquery-timer/jquery.timer": {
-            deps: ["jquery/jquery"]
+        "sigma.plugins.customEdgeShapes": {
+            deps: ["sigma"]
         },
-        "jquery/jquery": {
+        "jquery-timer/jquery.timer": {
+            deps: ["jquery"]
+        },
+        jquery: {
             exports: "$"
         },
-        "underscore/underscore": {
+        underscore: {
             exports: "_"
         },
-        "backbone/backbone": {
-            deps: ["underscore/underscore"]
+        backbone: {
+            deps: ["underscore"]
+        },
+        "backbone-relational": {
+            deps: ["underscore", "backbone"]
         }
     },
     paths: {
@@ -31,12 +37,12 @@ requirejs.config({
         sigma: "sigma.js/sigma.min",
         "sigma.layout.forceAtlast2": "sigma.js/plugins/sigma.layout.forceAtlas2.min",
         "sigma.plugins.dragNodes": "sigma.js/plugins/sigma.plugins.dragNodes.min",
-
-        views: "views"
+        "sigma.plugins.customEdgeShapes": "sigma.js/plugins/sigma.renderers.customEdgeShapes.min",
+        underscore: "underscore/underscore",
+        backbone: "backbone/backbone",
+        jquery: "jquery/jquery"
     },
-    packages: [
-
-    ]
+    packages: []
 });
 
 requirejs(["app"]);

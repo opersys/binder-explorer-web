@@ -15,31 +15,19 @@
  */
 
 define(function (require) {
-    var $ = require("jquery");
-    var MainView = require("views/main");
-    var BinderServices = require("models/BinderServices");
-    var Processes = require("models/Processes");
+    var Backbone = require("backbone");
     var modelLoader = require("modelLoader");
 
-    var binderServices = new BinderServices();
+    return Backbone.Model.extend({
+        idAttribute: "name",
 
-    modelLoader.fetch(binderServices);
+        getCaption: function () {
+            return this.get("name");
+        },
 
-    var mainView = new MainView({
-        el: $("#app"),
-        binderServices: binderServices
+        initialize: function () {
+            modelLoader.fetch(this);
+        }
     });
-
-    var resizeWindow = function () {
-        $("#app")
-            .width($(window).width())
-            .height($(window).height());
-
-        w2ui[mainView.getLayoutName()].resize();
-    };
-
-    $(window).resize(_.debounce(resizeWindow, 100));
-
-    // Reformat the window content.
-    resizeWindow();
 });
+

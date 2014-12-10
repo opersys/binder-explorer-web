@@ -22,6 +22,7 @@
     "jquery": "2.1.1",
     "backbone": "1.1.2",
     "underscore": "1.7.0",
-    "jquery-timer": "*"
+    "jquery-timer": "*",
+    "queueManager": "*"
   }
 }

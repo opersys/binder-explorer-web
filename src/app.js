@@ -21,109 +21,102 @@ var path = require("path");
 var util = require("util");
 var http = require("http");
 var queue = require("queue");
+var _ = require("underscore");
+var pslook = require("pslook");
+var Binder = require("jslibbinder");
+var util = require("util");
+
+// Local modules
+var BinderUtils = require("./binderUtils.js");
 
 // Express application
 var app = express();
 var server = http.createServer(app);
+var serviceManager = new Binder.ServiceManager();
 
 app.set("env", process.env.ENV || "development");
 app.set("port", process.env.PORT || 3000);
 app.set("views", path.join(__dirname, "views"));
 app.set("json spaces", 2);
 
+/*
+API draft:
+
+/binder: List of services
+  Returns: a simple flat list of service names.
+
+/binder/:serviceName: Fetch informations about the service called 'serviceName'
+  A JSON object containing the following data:
+    pid: Likely PID of the service or nothing if no PID was found.
+    iface: Interface implemented by the service or nothing if no PID was found.
+
+/proc: List all the process in the system
+/proc/:pid: Detail about one specific process.
+
+*/
+
 // Static files.
 app.use(exStatic(path.join(__dirname, "public"), { index: false }));
 
-app.get("/procedures", function (req, res) {
+// Routes.
+app.get("/proc", function (req, res) {
+    pslook.list(function (err, processes) {
+        if (err)
+            res.status(404).end();
 
+        res.json(processes).end();
+    }, {fields: pslook.ALL});
 });
 
-// Routes
-app.get("/binder", function (req, res) {
-    var procs = [];
-    var nodeToProc = {};
-    var nodeRefs = {};
-    var filesQueue = queue();
+app.get("/proc/:pid", function (req, res) {
+    pslook.read(req.params.pid, function (err, process) {
+        if (err)
+            res.status(404).end();
 
-    fs.readdir("/sys/kernel/debug/binder/proc", function (err, files) {
-        var file;
+        res.json(process).end();
+    }, {fields: pslook.ALL});
+});
 
-        filesQueue.on("end", function () {
-            var graphNodes = [];
-            var graphLinks = [];
+app.get("/binder/:serviceName", function (req, res) {
+    try {
+        // Make a catalog of node IDs to PID because findServiceNodeId doesn't provide
+        // us with the PID.
 
-            for (var k = 0; k < procs.length; k++) {
-                var isVm = false;
-                var procExePath = path.join("/proc", procs[k], "exe");
-                var procCmdLinePath = path.join("/proc", procs[k], "cmdline");
-                var exePath = path.basename(fs.readlinkSync(procExePath));
+        BinderUtils.readAllBinderProcFiles(function (binderProcs) {
+            var binderProcsByNode = {};
 
-                if (exePath == "app_process") {
-                    exePath = fs.readFileSync(procCmdLinePath).toString("utf-8").replace(/\u0000/g, '');
-                    isVm = true;
-                }
-
-                graphNodes.push({
-                    pid: procs[k],
-                    name: exePath,
-                    isVm: isVm
+            _.each(_.keys(binderProcs), function (binderPid) {
+                _.each(binderProcs[binderPid].nodes, function (nodeData) {
+                    binderProcsByNode[nodeData.id] = {};
+                    binderProcsByNode[nodeData.id] = binderProcs[binderPid];
+                    binderProcsByNode[nodeData.id].node = nodeData.id;
+                    binderProcsByNode[nodeData.id].pid = binderPid;
                 });
+            });
 
-                for (var l = 0; l < nodeRefs[procs[k]].length; l++) {
-                    graphLinks.push({
-                        source: procs[k],
-                        target: nodeToProc[nodeRefs[procs[k]][l]]
-                    });
-                }
-            }
+            BinderUtils.findServiceNodeId(req.params.serviceName, function (node, iface) {
+                var response = {};
 
-            res.json({
-                nodeRefs: nodeRefs,
-                nodeToProc: nodeToProc,
-                nodes: graphNodes,
-                links: graphLinks
+                if (iface) response.iface = iface;
+
+                response.node = node;
+                response.pid = binderProcsByNode[node].pid;
+                response.threads = binderProcsByNode[node].threads;
+                response.refs = binderProcsByNode[node].refs;
+                response.nodes = binderProcsByNode[node].nodes;
+
+                res.json(response);
             });
         });
+    } catch (ex) {
+        res.status(404).send();
+    }
+});
 
-        while (file = files.shift()) {
-            (function f(currentProc) {
-                filesQueue.push(function (queueCallback) {
-                    var procFile;
-
-                    procFile = path.join("/sys/kernel/debug/binder/proc", currentProc);
-
-                    nodeRefs[currentProc]  = [];
-                    procs.push(currentProc);
-
-                    fs.readFile(procFile, function (err, data) {
-                        var nodeNo, dataLines = data.toString().split("\n");
-
-                        // Remove the first 2 lines.
-                        dataLines.splice(0, 2);
-
-                        for (var j = 0; j < dataLines.length; j++) {
-                            var dataLine = dataLines[j].trim().split(" ");
-
-                            if (dataLine[0] == "thread") {}
-                            else if (dataLine[0] == "ref") {
-                                if (dataLine[4] != "dead") {
-                                    nodeNo = dataLine[5].replace(":", "");
-                                    nodeRefs[currentProc].push(nodeNo);
-                                }
-                            } else if (dataLine[0] == "node") {
-                                nodeNo = dataLine[1].replace(":", "");
-                                nodeToProc[nodeNo] = currentProc;
-                            }
-                        }
-
-                        queueCallback();
-                    });
-                });
-            })(file);
-        }
-
-        filesQueue.start();
-    });
+app.get("/binder", function (req, res) {
+    res.json(_.map(serviceManager.list(), function (serviceName) {
+        return { name: serviceName }
+    }));
 });
 
 server.listen(app.get("port"), function() {});

@@ -11,7 +11,11 @@
         "serve-static": "*",
         "morgan": "*",
         "queue": "*",
-        "underscore": "*"
+        "underscore": "*",
+        "pslook": "*",
+        "jslibbinder": "/home/neumann/Work/JSlibBinder",
+        "guid": "*",
+        "lstream": "*"
     },
     "devDependencies": {
         "grunt": "~0.4.2",
