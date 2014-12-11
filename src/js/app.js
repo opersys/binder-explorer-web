@@ -17,28 +17,37 @@
 define(function (require) {
     var $ = require("jquery");
     var MainView = require("views/main");
+    var Toolbar = require("views/toolbar");
     var BinderServices = require("models/BinderServices");
-    var Processes = require("models/Processes");
+    var Functions = require("models/Functions");
     var modelLoader = require("modelLoader");
 
     var binderServices = new BinderServices();
+    var functions = new Functions();
 
     modelLoader.fetch(binderServices);
 
     var mainView = new MainView({
         el: $("#app"),
-        binderServices: binderServices
+        binderServices: binderServices,
+        functions: functions
+    });
+
+    var mainToolbar = new Toolbar({
+        el: $("#toolbar"),
+        functions: functions
     });
 
     var resizeWindow = function () {
         $("#app")
             .width($(window).width())
-            .height($(window).height());
+            .height($(window).height() - $("#toolbar").outerHeight());
 
         w2ui[mainView.getLayoutName()].resize();
     };
 
     $(window).resize(_.debounce(resizeWindow, 100));
+    mainToolbar.on("resize", resizeWindow);
 
     // Reformat the window content.
     resizeWindow();

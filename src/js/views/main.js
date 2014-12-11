@@ -36,13 +36,30 @@ define(function (require) {
             var self = this;
 
             self._binderServices = opts.binderServices;
+            self._functions = opts.functions;
             self._procs = opts.procs;
+
+            self._dependsView = new DependsView({
+                binderServices: self._binderServices,
+                functions: self._functions
+            });
+
+            self._servicesView = new ServicesView({
+                binderServices: self._binderServices
+            });
 
             self.$el.w2layout({
                 name: self.getLayoutName(),
                 panels: [
-                    { type: "main" },
-                    { type: "left", size: 300 }
+                    {
+                        type: "main",
+                        content: self._dependsView
+                    },
+                    {
+                        type: "left",
+                        content: self._servicesView,
+                        size: 300
+                    }
                 ],
                 onResize: function (ev) {
                     ev.onComplete = function () {
@@ -50,16 +67,6 @@ define(function (require) {
                             self._dependsView.resize();
                     };
                 }
-            });
-
-            self._dependsView = new DependsView({
-                el: $(w2ui[self.getLayoutName()].el("main")),
-                binderServices: self._binderServices
-            });
-
-            self._servicesView = new ServicesView({
-                el: $(w2ui[self.getLayoutName()].el("left")),
-                binderServices: self._binderServices
             });
 
             self._servicesView.on("viewServices:selected", function () {

@@ -53,7 +53,6 @@ define(function (require) {
         },
 
         _onServiceRemoved: function (binderService) {
-
         },
 
         _onServiceListClick: function (event) {
@@ -69,18 +68,31 @@ define(function (require) {
              w2ui["sidebar"].select(binderService.get("pid"));
         },
 
-        initialize: function (opts) {
+        render: function () {
             var self = this;
+
+            // self.box is set by w2ui.
+            self.$el = $(self.box);
 
             self.$el.w2sidebar({
                 name: 'sidebar',
                 img: null,
                 nodes: [
                     {
-                        id: "services", text: "Services", expanded: true, nodes: []
+                            id: "services", text: "Services", expanded: true, nodes: []
                     }
                 ]
             });
+
+            self.$el.bind("resize", self._onResize);
+
+            w2ui["sidebar"].on("click", function () {
+                self._onServiceListClick.apply(self, arguments);
+            });
+        },
+
+        initialize: function (opts) {
+            var self = this;
 
             self._binderServices = opts.binderServices;
 
@@ -93,10 +105,6 @@ define(function (require) {
             });
 
             self._binderServices.on("remove", function (model, coll, opts) {
-            });
-
-            w2ui["sidebar"].on("click", function () {
-                self._onServiceListClick.apply(self, arguments);
             });
         }
     });

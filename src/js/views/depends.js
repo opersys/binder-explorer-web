@@ -17,6 +17,7 @@
 define(function (require) {
     var Backbone = require("backbone");
     var BinderServices = require("models/BinderServices");
+    var Function = require("models/Function");
     var sigma = require("sigma");
     var $ = require("jquery");
     var _ = require("underscore");
@@ -147,6 +148,33 @@ define(function (require) {
             var self = this;
 
             self._binderServices = opts.binderServices;
+            self._functions = opts.functions;
+
+            self._binderServices.on("add", function (model) {
+                self._addGraphNode(model);
+            });
+
+            self._binderServices.on("change", function (model, value, options) {
+            });
+
+            self._binderServices.on("change:refs", function () {
+                self._updateGraphEdges();
+            });
+        },
+
+        resize: function () {
+            var self = this;
+
+            if (self._s) {
+                self._s.renderers[0].resize();
+                self._s.refresh();
+            }
+        },
+
+        render: function () {
+            var self = this;
+
+            self.el = self.box;
 
             self.timer = $.timer(function () {
                 self._s.stopForceAtlas2();
@@ -179,17 +207,6 @@ define(function (require) {
 
             sigma.plugins.dragNodes(self._s, self._s.renderers[0]);
 
-            self._binderServices.on("add", function (model) {
-                self._addGraphNode(model);
-            });
-
-            self._binderServices.on("change", function (model, value, options) {
-            });
-
-            self._binderServices.on("change:refs", function () {
-                self._updateGraphEdges();
-            });
-
             self._s.bind("clickNode", function (node) {
                 self._onNodeClicked.apply(self, arguments);
             });
@@ -197,15 +214,34 @@ define(function (require) {
             self.on("viewDepends:selected", function (binderProc) {
                 self.select(binderProc);
             });
-        },
 
-        resize: function () {
-            this._s.renderers[0].resize();
-            this._s.refresh();
-        },
+            self._functions.add(new Function({
+                id: "fnStartAutoPlace",
+                name: "Start Auto Place",
+                callback: function () {
+                    self._s.startForceAtlas2({
+                        linLogMode: true,
+                        gravity: 2,
+                        adjustSizes: true,
+                        strongGravityMode: true,
+                        //slowDown: 1,
+                        edgeWeightInfluence: 100,
+                        //outboundAttractionDistribution: false,
+                        worker: true,
+                        barnesHutOptimize: true
+                    });
+                },
+                context: self
+            }));
 
-        render: function () {
-            this._s.refresh();
+            self._functions.add(new Function({
+                id: "fnStopAutoPlace",
+                name: "Stop Auto Place",
+                callback: function () {
+                    self._s.stopForceAtlas2();
+                },
+                context: self
+            }));
         }
     });
 });

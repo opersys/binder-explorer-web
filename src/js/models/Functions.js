@@ -14,20 +14,10 @@
  * limitations under the License.
  */
 
-// TODO: Display a progress bar through this object.
 define(function (require) {
-    var QueueManager = require("queueManager/QueueManager");
-    var queue = new QueueManager();
+    var Backbone = require("backbone");
 
-    queue.each(function (bbObj) {
-        bbObj.fetch()
+    return Backbone.Collection.extend({
+        url: null
     });
-
-    var fetch = function (bbObj) {
-        queue.add(bbObj);
-    };
-
-    queue.start();
-
-    return { fetch: fetch };
 });
