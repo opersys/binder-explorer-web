@@ -52,6 +52,7 @@ module.exports = function (grunt) {
         bower: {
             dist: {
                 dest: "dist/public/js",
+                css_dest: "dist/public/css",
                 options: {
                     expand: true,
                     packageSpecific: {

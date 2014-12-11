@@ -23,6 +23,7 @@
     "backbone": "1.1.2",
     "underscore": "1.7.0",
     "jquery-timer": "*",
-    "queueManager": "*"
+    "queueManager": "*",
+    "nprogress": "0.1.6"
   }
 }

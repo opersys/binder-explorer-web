@@ -14,13 +14,22 @@
  * limitations under the License.
  */
 
-// TODO: Display a progress bar through this object.
 define(function (require) {
     var QueueManager = require("queueManager/QueueManager");
-    var queue = new QueueManager();
+    var NProgress = require("nprogress/nprogress");
+    var queue = new QueueManager({ delay: -1 });
 
     queue.each(function (bbObj) {
-        bbObj.fetch()
+        bbObj.fetch({ success: function () {
+            console.log("Successfully fetched: something");
+
+            if (queue.size() != 0)
+                NProgress.inc(1 / queue.size());
+            else
+                NProgress.done();
+
+            queue.next();
+        }})
     });
 
     var fetch = function (bbObj) {
