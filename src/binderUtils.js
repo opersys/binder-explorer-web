@@ -38,10 +38,15 @@ var readAllBinderProcFiles = function (resultCb) {
         for (var i in files) {
             (function (file, results) {
                 queue.push(function (queueCb) {
-                    readBinderProcFile(file, function (procData) {
-                        results[file] = procData;
-                        queueCb();
-                    });
+                    readBinderProcFile(file,
+                        function (procData) {
+                            results[file] = procData;
+                            queueCb();
+                        },
+                        // Ignore errors there. Just handle the missing process
+                        // later on.
+                        function (err) { }
+                    );
                 });
             })(files[i], results);
         }

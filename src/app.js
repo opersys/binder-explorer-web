@@ -18,13 +18,11 @@ var express = require("express");
 var exStatic = require("serve-static");
 var fs = require("fs");
 var path = require("path");
-var util = require("util");
 var http = require("http");
 var queue = require("queue");
 var _ = require("underscore");
 var pslook = require("pslook");
 var Binder = require("jslibbinder");
-var util = require("util");
 
 // Local modules
 var BinderUtils = require("./binderUtils.js");
