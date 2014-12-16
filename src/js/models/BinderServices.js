@@ -18,21 +18,44 @@ define(function (require) {
     var Backbone = require("backbone");
     var BinderService = require("models/BinderService");
 
+    /*
+     * Events:
+     *   services:newpid(pid): called when a new container PID is added.
+     *   services:newnode(node): called when a new node ID is found.
+     */
+
     return Backbone.Collection.extend({
         url: "/binder",
         model: BinderService,
         _serviceByNode: {},
+        _servicesByPid: {},
 
         findByNodeId: function (node) {
             return this._serviceByNode[node];
         },
 
+        getServicesInPid: function (pid) {
+            return this._servicesByPid[pid];
+        },
+
+        getAllServicesPid: function () {
+            return _.keys(this._servicesByPid);
+        },
+
         _onServiceNodes: function (binderService) {
             var self = this;
 
+            if (!self._servicesByPid[binderService.get("pid")]) {
+                self._servicesByPid[binderService.get("pid")] = [];
+                self.trigger("services:newpid", binderService.get("pid"));
+            }
+
             _.each(binderService.get("nodes"), function (node) {
                 self._serviceByNode[node.id] = binderService;
+                self.trigger("services:newnode", node.id);
             });
+
+            self._servicesByPid[binderService.get("pid")].push(binderService);
         },
 
         initialize: function () {

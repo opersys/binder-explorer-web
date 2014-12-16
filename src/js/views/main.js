@@ -29,7 +29,16 @@ define(function (require) {
             return "layout";
         },
 
-        _onServiceSelected: function (binderSer) {
+        _onServiceSelected: function (selectedBinderServices) {
+            var self = this;
+
+            self._dependsView.select(selectedBinderServices);
+        },
+
+        _onServiceUnselected: function (unselectedBinderServices) {
+            var self = this;
+
+            self._dependsView.unselect(unselectedBinderServices);
         },
 
         initialize: function (opts) {
@@ -69,11 +78,15 @@ define(function (require) {
                 }
             });
 
-            self._servicesView.on("viewServices:selected", function () {
+            self._servicesView.on("services_view:selected", function () {
                 self._onServiceSelected.apply(self, arguments);
             });
 
-            self._dependsView.on("viewDepends:selected", function () {
+            self._servicesView.on("services_view:unselected", function () {
+                self._onServiceUnselected.apply(self, arguments);
+            });
+
+            self._dependsView.on("depends_view:selected", function () {
                 self._onServiceSelected.apply(self, arguments);
             });
         }

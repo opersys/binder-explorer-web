@@ -18,10 +18,17 @@ define(function (require) {
     var Backbone = require("backbone");
     var w2ui = require("w2ui");
 
+    /*
+     * Events:
+     *   services_view:selected([selectedServices]):
+     */
+
     return Backbone.View.extend({
 
         // Sorted by service name.
         _services: [],
+
+        _selectedServices: [],
 
         _refreshSidebar: function () {
             var self = this;
@@ -35,7 +42,8 @@ define(function (require) {
                 return {
                     id: name,
                     text: self._binderServices.get(name).getCaption(),
-                    nodes: []
+                    nodes: [],
+                    type: "service"
                 }
             });
 
@@ -49,19 +57,63 @@ define(function (require) {
             self._refreshSidebar();
         },
 
-        _onServiceProcessChanged: function (binderService) {
+        // Add services to the right PID.
+        _onServiceNodeAdded: function (node) {
+            var self = this;
+            var binderService = self._binderServices.findByNodeId(node);
+            var targetSbNode = _.findWhere(w2ui["sidebar"].nodes[1].nodes, { id: binderService.get("pid") });
+
+            if (!_.findWhere(targetSbNode.nodes, { id: binderService.get("name") })) {
+                targetSbNode.nodes.push({
+                    id: binderService.get("name"),
+                    text: binderService.get("name"),
+                    nodes: [],
+                    type: "service"
+                });
+
+                targetSbNode.nodes = _.sortBy(targetSbNode.nodes, function (sbNode) {
+                    return sbNode.id;
+                });
+
+                w2ui["sidebar"].refresh();
+            }
         },
 
-        _onServiceRemoved: function (binderService) {
+        // Add the PID to the list.
+        _onServicePidAdded: function (pid) {
+            w2ui["sidebar"].nodes[1].nodes.push({
+                id: pid,
+                text: pid,
+                type: "pid",
+                nodes: []
+            });
+            w2ui["sidebar"].nodes[1].nodes = _.sortBy(w2ui["sidebar"].nodes[1].nodes, function (sbNode) {
+                return sbNode.id;
+            });
+
+            w2ui["sidebar"].refresh();
         },
 
         _onServiceListClick: function (event) {
-            var self = this, binderService;
+            var self = this;
 
-            binderService = self._binderServices.get(event.target);
+            if (self._selectedServices.length > 0) {
+                self.trigger("services_view:unselected", self._selectedServices);
+                self._selectedServices = [];
+            }
 
-            if (binderService != null)
-                self.trigger("viewServices:selected", binderService);
+            switch (event.node.type) {
+                case "pid":
+                    self._selectedServices = self._binderServices.getServicesInPid(event.node.id);
+                    break;
+
+                case "service":
+                    self._selectedServices = [self._binderServices.get(event.target)];
+                    break;
+            }
+
+            if (self._selectedServices.length > 0)
+                self.trigger("services_view:selected", self._selectedServices);
         },
 
         select: function (binderService) {
@@ -78,9 +130,8 @@ define(function (require) {
                 name: 'sidebar',
                 img: null,
                 nodes: [
-                    {
-                            id: "services", text: "Services", expanded: true, nodes: []
-                    }
+                    { id: "services", text: "Services", expanded: true, nodes: [], img: "icon-folder" },
+                    { id: "processes", text: "Processes", expanded: true, nodes: [], img: "icon-folder" }
                 ]
             });
 
@@ -98,6 +149,14 @@ define(function (require) {
 
             self._binderServices.on("add", function () {
                 self._onServiceAdded.apply(self, arguments);
+            });
+
+            self._binderServices.on("services:newpid", function () {
+                self._onServicePidAdded.apply(self, arguments);
+            });
+
+            self._binderServices.on("services:newnode", function () {
+                self._onServiceNodeAdded.apply(self, arguments);
             });
 
             self._binderServices.on("change:process", function (model, coll, opts) {

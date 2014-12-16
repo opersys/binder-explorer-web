@@ -30,6 +30,11 @@ define(function (require) {
     // JQuery plugins
     require("jquery-timer/jquery.timer");
 
+    /*
+     * Events:
+     *   depends_view:selected([selectedServices]):
+     */
+
     return Backbone.View.extend({
 
         // Node ID to service object
@@ -43,6 +48,9 @@ define(function (require) {
         cy: null,
         cangle: 0.0,
         angle: Math.PI * 2 / 100,
+
+        // Selected services on the screen
+        _selectedServices: [],
 
         _onServicesSynced: function (coll, resp, options) {
             this._renderGraph();
@@ -116,29 +124,115 @@ define(function (require) {
             var binderService = self._binderServices.get(event.data.node.id);
 
             if (binderService != null)
-                self.trigger("viewDepends:selected", binderService);
+                self.trigger("viewDepends:selected", [binderService]);
         },
 
-        select: function (binderService) {
-            var self = this, node;
+        select: function (selectedBS) {
+            var self = this, node, selectedNodes = [];
+            var selectedEdges = {}, unselectedEdges = {};
 
-            // Unselect any previously selected nodes.
-            self._s.graph.nodes().forEach(function (node) {
-                node.color = self._s.settings("defaultNodeColor");
+            _.each(selectedBS, function (binderService) {
+                node = self._s.graph.nodes(binderService.get("name"));
+
+                // Make the selected node red.
+                if (node != null)
+                    node.color = "red";
+
+                selectedNodes.push(node.id);
+
+                // The selected edges needs to be moved on top and rendered
+                // after the unselected edges. Group the selected and unselected
+                // edges together.
+
+                self._s.graph.edges().forEach(function (edge) {
+                    if (edge.source == binderService.get("name") || edge.target == binderService.get("name")) {
+                        if (unselectedEdges[edge.id])
+                            delete unselectedEdges[edge.id];
+
+                        selectedEdges[edge.id] = {
+                            id: edge.id,
+                            source: edge.source,
+                            target: edge.target,
+                            type: "arrow",
+                            color: "red",
+                            size: self._s.settings("maxEdgeSize")
+                        };
+
+                        // Make the target and source node blue.
+                        if (node.target != binderService.get("name")) {
+                            node = self._s.graph.nodes(edge.target);
+                            node.color = "blue";
+                            selectedNodes.push(edge.target);
+                        }
+
+                        if (node.source != binderService.get("name")) {
+                            node = self._s.graph.nodes(edge.source);
+                            node.color = "blue";
+                            selectedNodes.push(edge.source);
+                        }
+
+                    } else {
+                        if (!selectedEdges[edge.id]) {
+                            unselectedEdges[edge.id] = {
+                                id: edge.id,
+                                source: edge.source,
+                                target: edge.target,
+                                type: "arrow",
+                                color: "#e8e8e8",
+                                size: self._s.settings("maxEdgeSize")
+                            };
+                        }
+                    }
+                });
+
+                // Change the color of the unselected nodes to a pale shade of grey.
+                self._s.graph.nodes().forEach(function (node) {
+                    if (!_.contains(selectedNodes, node.id))
+                        node.color = "#d8d8d8";
+                });
+
+                self._selectedServices.push(binderService);
             });
 
-            node = self._s.graph.nodes(binderService.get("name"));
-            if (node != null)
-                node.color = "red";
-
+            // Remove all the edges.
             self._s.graph.edges().forEach(function (edge) {
-                if (edge.source == binderService.get("name") || edge.target == binderService.get("name")) {
-                    edge.color = "red";
-                    edge.size = self._s.settings("maxEdgeSize");
-                } else {
-                    edge.color = self._s.settings("defaultEdgeColor");
-                    edge.size = self._s.settings("minEdgeSize");
-                }
+                self._s.graph.dropEdge(edge.id);
+            });
+
+            // Add the unselected edges back to the graph.
+            _.each(_.values(unselectedEdges), function (edge) {
+                self._s.graph.addEdge(edge);
+            });
+
+            // Add the edge that are selected so that they are rendered on top
+            // of the edges that weren't.
+            _.each(_.values(selectedEdges), function (edge) {
+                self._s.graph.addEdge(edge);
+            });
+
+            self._s.refresh();
+        },
+
+        unselect: function (unselectedBS) {
+            var self = this;
+
+            _.each(unselectedBS, function (binderService) {
+                node = self._s.graph.nodes(binderService.get("name"));
+                if (node != null)
+                    node.color = self._s.defaultNodeColor;
+
+                self._s.graph.edges().forEach(function (edge) {
+                    if (edge.source == binderService.get("name") || edge.target == binderService.get("name")) {
+                        edge.color = self._s.settings("defaultEdgeColor");
+                        edge.size = self._s.settings("minEdgeSize");
+
+                        self._s.graph.nodes(edge.target).color = self._s.settings("defaultNodeColor");
+                    }
+                });
+
+                self._selectedServices = _.reject(self._selectedServices, function (selectedService) {
+                    return selectedService.get("id") == binderService.get("id");
+                });
             });
 
             self._s.refresh();
