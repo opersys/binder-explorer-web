@@ -21,6 +21,10 @@ var _ = require("underscore");
 
 module.exports = function (grunt) {
 
+    var projectName = "binder-explorer";
+    var packFile = projectName + ".zip";
+    var md5File = packFile + ".md5sum";
+
     grunt.initConfig({
         pkg: grunt.file.readJSON("package.json"),
 
@@ -83,6 +87,15 @@ module.exports = function (grunt) {
             }
         },
 
+        chmod: {
+            options: {
+                mode: "755"
+            },
+            node: {
+                src: ["dist/node"]
+            }
+        },
+
         exec: {
             npm_install: {
                 command: "npm --production install",
@@ -91,14 +104,17 @@ module.exports = function (grunt) {
                 cwd: "dist"
             },
             md5sum: {
-                command: "md5sum out/binder-explorer.zip | cut -f 1 -d ' ' > out/binder-explorer.zip.md5sum"
+                command: [
+                    "md5sum", path.join("out", packFile),
+                    "|",
+                    "cut -f 1 -d ' ' > " + path.join("out", md5File)].join(" ")
             }
         },
 
         compress: {
             dist: {
                 options: {
-                    archive: "out/binder-explorer.zip",
+                    archive: path.join("out", packFile),
                     mode: 0
                 },
                 files: [
@@ -108,11 +124,37 @@ module.exports = function (grunt) {
         }
     });
 
+    grunt.registerTask("dev_bin", "Pick the right binaries for development", function (arch) {
+        var selArch, defArch = os.arch();
+
+        if (!arch)
+            selArch = defArch;
+        else
+            selArch = arch;
+
+        var files = fs.readdirSync("./dist/_bin");
+        var r = new RegExp(selArch + "$");
+
+        _.each(files, function (file) {
+            var f = path.join("./dist/_bin", file);
+            var e = new RegExp("\\.{0,1}_{0,1}" + selArch);
+
+            if (r.test(file)) {
+                grunt.file.copy(f, "./dist/" + file.replace(e, ""));
+                grunt.log.writeln("Using " + file);
+            }
+        });
+    });
+
     grunt.loadNpmTasks("grunt-mkdir");
     grunt.loadNpmTasks("grunt-bower");
     grunt.loadNpmTasks("grunt-contrib-copy");
     grunt.loadNpmTasks("grunt-auto-install");
+    grunt.loadNpmTasks("grunt-exec");
+    grunt.loadNpmTasks("grunt-contrib-compress");
+    grunt.loadNpmTasks("grunt-chmod");
 
     grunt.registerTask("default", ["mkdir", "bower", "copy", "auto_install"]);
+    grunt.registerTask("pack", ["default", "chmod", "compress", "exec:md5sum"]);
 };
 
