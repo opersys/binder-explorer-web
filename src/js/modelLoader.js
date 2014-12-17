@@ -36,7 +36,9 @@ define(function (require) {
         queue.add(bbObj);
     };
 
-    queue.start();
+    $(document).loaded(function () {
+        queue.start();
+    });
 
     return { fetch: fetch };
 });
