@@ -15,6 +15,7 @@
  */
 
 define(function (require) {
+    var $ = require("jquery");
     var QueueManager = require("queueManager/QueueManager");
     var NProgress = require("nprogress/nprogress");
     var queue = new QueueManager({ delay: -1 });
@@ -36,7 +37,7 @@ define(function (require) {
         queue.add(bbObj);
     };
 
-    $(document).loaded(function () {
+    $(document).ready(function () {
         queue.start();
     });
 

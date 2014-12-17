@@ -52,6 +52,9 @@ define(function (require) {
         // Selected services on the screen
         _selectedServices: [],
 
+        // Services that were added before render was called.
+        _waitingServices: [],
+
         _onServicesSynced: function (coll, resp, options) {
             this._renderGraph();
         },
@@ -59,17 +62,33 @@ define(function (require) {
         _addGraphNode: function (binderService) {
             var self = this;
 
-            self.cx = 0.5 * Math.cos(self.cangle);
-            self.cy = 0.5 * Math.sin(self.cangle);
-            self.cangle += self.angle;
+            if (binderService)
+                console.log("Adding graph node: " + binderService.get("name"));
 
-            self._s.graph.addNode({
-                id: binderService.get("name"),
-                label: binderService.get("name"),
-                x: self.cx,
-                y: self.cy,
-                size: 1
-            });
+            // Might be called before rendering is done!
+            if (!self._s) {
+                self._waitingServices.push(binderService);
+                return;
+            }
+
+            if (binderService)
+                self._waitingServices.push(binderService);
+
+            while (self._waitingServices.length > 0) {
+                var bs = self._waitingServices.pop();
+
+                self.cx = 0.5 * Math.cos(self.cangle);
+                self.cy = 0.5 * Math.sin(self.cangle);
+                self.cangle += self.angle;
+
+                self._s.graph.addNode({
+                    id: bs.get("name"),
+                    label: bs.get("name"),
+                    x: self.cx,
+                    y: self.cy,
+                    size: 1
+                });
+            }
         },
 
         _updateGraphEdges: function () {
@@ -77,6 +96,9 @@ define(function (require) {
 
             // Iterate through the services to add the relations.
             self._binderServices.each(function (binderService) {
+                if (!self._s.graph.nodes(binderService.get("name")))
+                    return;
+
                 _.each(binderService.get("refs"), function (ref) {
                     var target = self._binderServices.findByNodeId(ref.node);
 
@@ -268,6 +290,8 @@ define(function (require) {
         render: function () {
             var self = this;
 
+            console.log("depends.js object: render called");
+
             self.el = self.box;
 
             self.timer = $.timer(function () {
@@ -309,10 +333,15 @@ define(function (require) {
                 self.select(binderProc);
             });
 
+            // Add any pending node.
+            self._addGraphNode();
+
             self._functions.add(new Function({
                 id: "fnStartAutoPlace",
                 name: "Start Auto Place",
                 callback: function () {
+                    if (!self._s) return;
+
                     self._s.startForceAtlas2({
                         linLogMode: true,
                         gravity: 2,
@@ -332,6 +361,7 @@ define(function (require) {
                 id: "fnStopAutoPlace",
                 name: "Stop Auto Place",
                 callback: function () {
+                    if (!self._s) return;
                     self._s.stopForceAtlas2();
                 },
                 context: self

@@ -33,6 +33,8 @@ define(function (require) {
         _refreshSidebar: function () {
             var self = this;
 
+            if (!w2ui["sidebar"]) return;
+
             self._services = _.sortBy(self._services, function (name) {
                 var binderService = self._binderServices.get(name);
                 return binderService.getCaption();
@@ -53,7 +55,9 @@ define(function (require) {
         _onServiceAdded: function (binderService) {
             var self = this;
 
-            self._services.push(binderService.get("name"));
+            if (binderService)
+                self._services.push(binderService.get("name"));
+
             self._refreshSidebar();
         },
 
@@ -81,6 +85,8 @@ define(function (require) {
 
         // Add the PID to the list.
         _onServicePidAdded: function (pid) {
+            if (!w2ui["sidebar"]) return;
+
             w2ui["sidebar"].nodes[1].nodes.push({
                 id: pid,
                 text: pid,
@@ -123,6 +129,8 @@ define(function (require) {
         render: function () {
             var self = this;
 
+            console.log("services.js object: render called");
+
             // self.box is set by w2ui.
             self.$el = $(self.box);
 
@@ -140,6 +148,9 @@ define(function (require) {
             w2ui["sidebar"].on("click", function () {
                 self._onServiceListClick.apply(self, arguments);
             });
+
+            // Add any pending services.
+            self._onServiceAdded();
         },
 
         initialize: function (opts) {
