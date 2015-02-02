@@ -91,11 +91,30 @@ define(function (require) {
             }
         },
 
+        _addGraphEdge: function (fromBinderService, toBinderService) {
+            var self = this;
+            var edgeName = fromBinderService.get("name") + "-" + toBinderService.get("name");
+
+            if (!self._s.graph.edges(edgeName)) {
+                self._s.graph.addEdge({
+                    id: edgeName,
+                    source: fromBinderService.get("name"),
+                    target: toBinderService.get("name"),
+                    size: 1,
+                    type: "arrow"
+                });
+            }
+
+            self._s.refresh();
+        },
+
         _updateGraphEdges: function () {
             var self = this;
 
+            if (!self._s) return;
+
             // Iterate through the services to add the relations.
-            self._binderServices.each(function (binderService) {
+            /*self._binderServices.each(function (binderService) {
                 if (!self._s.graph.nodes(binderService.get("name")))
                     return;
 
@@ -106,7 +125,7 @@ define(function (require) {
                         var edgeName = binderService.get("name") + "-" + target.get("name");
 
                         if (!self._s.graph.edges(edgeName)) {
-                            console.log("Linking " + binderService.get("name") + " to " + target.get("name"));
+                            //console.log("Linking " + binderService.get("name") + " to " + target.get("name"));
 
                             self._s.graph.addEdge({
                                 id: edgeName,
@@ -118,7 +137,7 @@ define(function (require) {
                         }
                     }
                 });
-            });
+            });*/
 
             if (!self._s.isForceAtlas2Running()) {
                 // FIXME: Semi-random parameters.
@@ -273,8 +292,12 @@ define(function (require) {
             self._binderServices.on("change", function (model, value, options) {
             });
 
-            self._binderServices.on("change:refs", function () {
+            /*&self._binderServices.on("change:refs", function () {
                 self._updateGraphEdges();
+            });*/
+
+            self._binderServices.on("services:newlink", function (fromBinderService, toBinderService) {
+                self._addGraphEdge(fromBinderService, toBinderService);
             });
         },
 
@@ -290,7 +313,7 @@ define(function (require) {
         render: function () {
             var self = this;
 
-            console.log("depends.js object: render called");
+            console.log("depends-sigma.js object: render called");
 
             self.el = self.box;
 

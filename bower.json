@@ -18,12 +18,12 @@
   ],
   "dependencies": {
     "w2ui": "1.4.2",
-    "sigma.js": "git@github.com:fdgonthier/sigma-bower.git",
     "jquery": "2.1.1",
     "backbone": "1.1.2",
     "underscore": "1.7.0",
     "jquery-timer": "*",
     "queueManager": "*",
-    "nprogress": "0.1.6"
+    "nprogress": "0.1.6",
+    "d3": "3.5.2"
   }
 }

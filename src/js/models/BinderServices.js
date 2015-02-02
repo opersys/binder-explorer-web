@@ -20,15 +20,23 @@ define(function (require) {
 
     /*
      * Events:
-     *   services:newpid(pid): called when a new container PID is added.
-     *   services:newnode(node): called when a new node ID is found.
+     *   services:newpid(pid):
+     *      fired when a new container PID is added.
+     *   services:newnode(node):
+     *      fired when a new node ID is found.
+     *   services:newlink(fromService, toService):
+     *      fired when a new outbound link from a node to another node is added
      */
 
     return Backbone.Collection.extend({
         url: "/binder",
         model: BinderService,
+
         _serviceByNode: {},
         _servicesByPid: {},
+
+        // List of refs that reference unknown nodes.
+        _pendingRefs: {},
 
         findByNodeId: function (node) {
             return this._serviceByNode[node];
@@ -42,6 +50,65 @@ define(function (require) {
             return _.keys(this._servicesByPid);
         },
 
+        _processRefs: function (binderService) {
+            var self = this;
+
+            // Iterate through the services to add the relations.
+            _.each(binderService.get("refs"), function (ref) {
+                var outboundLinksTo,
+                    inboundLinksTo,
+                    targetService = self.findByNodeId(ref.node);
+
+                // Links to the service_manager (node 1) are excluded.
+                if (ref.node == 1) return;
+
+                // If the target doesn't exists, make the ref pending.
+                if (!targetService) {
+                    if (!self._pendingRefs[ref.node])
+                        self._pendingRefs[ref.node] = [];
+
+                    self._pendingRefs[ref.node].push(binderService);
+
+                    return;
+                }
+
+                if (!(outboundLinksTo = binderService.get("outboundLinks")))
+                    outboundLinksTo = new Backbone.Collection();
+
+                if (!(inboundLinksTo = binderService.get("inboundLinks")))
+                    inboundLinksTo = new Backbone.Collection();
+
+                if (!outboundLinksTo.get(targetService.get("name"))) {
+                    outboundLinksTo.add(targetService);
+                    self.trigger("services:newlink", binderService, targetService);
+                }
+
+                if (!inboundLinksTo.get(binderService.get("name")))
+                    inboundLinksTo.add(binderService);
+
+                binderService.set("outboundLinks", outboundLinksTo);
+                binderService.set("inboundLinks", inboundLinksTo);
+            });
+        },
+
+        // Called when the references for a service are loaded.
+        _onServiceRefs: function (binderService) {
+            var self = this, pendingRefs;
+
+            if (pendingRefs = self._pendingRefs[binderService.get("node")]) {
+                // Clear the pendings refs for this node, they will be re-added
+                // by processRefs if they are still pending.
+                self._pendingRefs[binderService.get("node")] = [];
+
+                _.each(pendingRefs, function (binderService) {
+                    self._processRefs(binderService);
+                });
+            }
+
+            self._processRefs(binderService);
+        },
+
+        // Called when the nodes for a service are loaded.
         _onServiceNodes: function (binderService) {
             var self = this;
 
@@ -61,8 +128,16 @@ define(function (require) {
         initialize: function () {
             var self = this;
 
-            self.on("change:nodes", function (model) {
-                self._onServiceNodes.apply(self, [model]);
+            self.on("change:nodes", function (binderService) {
+                self._onServiceNodes.apply(self, [binderService]);
+            });
+
+            self.on("change:refs", function (binderService) {
+                self._onServiceRefs.apply(self, [binderService]);
+            });
+
+            self.on("services:newlink", function (fromService, toService) {
+                //console.log("Link from: " + fromService.get("name") + " to " + toService.get("name"));
             });
         }
     });

@@ -63,9 +63,12 @@ define(function (require) {
 
         // Add services to the right PID.
         _onServiceNodeAdded: function (node) {
-            var self = this;
+            var self = this, targetSbNode;
             var binderService = self._binderServices.findByNodeId(node);
-            var targetSbNode = _.findWhere(w2ui["sidebar"].nodes[1].nodes, { id: binderService.get("pid") });
+
+            if (!self._s) return;
+
+            targetSbNode = _.findWhere(w2ui["sidebar"].nodes[1].nodes, { id: binderService.get("pid") });
 
             if (!_.findWhere(targetSbNode.nodes, { id: binderService.get("name") })) {
                 targetSbNode.nodes.push({

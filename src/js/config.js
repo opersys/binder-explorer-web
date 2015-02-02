@@ -34,10 +34,10 @@ requirejs.config({
     },
     paths: {
         w2ui: "w2ui/w2ui-1.4.2.min",
-        sigma: "sigma.js/sigma.min",
+/*        sigma: "sigma.js/sigma.min",
         "sigma.layout.forceAtlast2": "sigma.js/plugins/sigma.layout.forceAtlas2.min",
         "sigma.plugins.dragNodes": "sigma.js/plugins/sigma.plugins.dragNodes.min",
-        "sigma.plugins.customEdgeShapes": "sigma.js/plugins/sigma.renderers.customEdgeShapes.min",
+        "sigma.plugins.customEdgeShapes": "sigma.js/plugins/sigma.renderers.customEdgeShapes.min",*/
         underscore: "underscore/underscore",
         backbone: "backbone/backbone",
         jquery: "jquery/jquery"

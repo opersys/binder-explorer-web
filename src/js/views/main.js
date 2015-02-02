@@ -16,8 +16,9 @@
 
 define(function (require) {
     var Backbone = require("backbone");
-    var DependsView = require("views/depends");
+    var DependsView = require("views/depends-d3");
     var ServicesView = require("views/services");
+    var ServicePreview = require("views/servicePreview");
     var $ = require("jquery");
     var w2ui = require("w2ui");
 
@@ -33,6 +34,7 @@ define(function (require) {
             var self = this;
 
             self._dependsView.select(selectedBinderServices);
+            self._servicePreview.preview(selectedBinderServices);
         },
 
         _onServiceUnselected: function (unselectedBinderServices) {
@@ -57,6 +59,9 @@ define(function (require) {
                 binderServices: self._binderServices
             });
 
+            self._servicePreview = new ServicePreview({
+            });
+
             self.$el.w2layout({
                 name: self.getLayoutName(),
                 panels: [
@@ -68,6 +73,11 @@ define(function (require) {
                         type: "left",
                         content: self._servicesView,
                         size: 300
+                    },
+                    {
+                        type: "preview",
+                        content: self._servicePreview,
+                        resizable: true
                     }
                 ],
                 onResize: function (ev) {
