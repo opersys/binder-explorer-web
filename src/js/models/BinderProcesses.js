@@ -16,10 +16,21 @@
 
 define(function (require) {
     var Backbone = require("backbone");
-    var modelLoader = require("modelLoader");
+    var BinderProcess = require("models/BinderProcess");
 
-    return Backbone.Model.extend({
-        idAttribute: "name"
+    return Backbone.Collection.extend({
+        url: "/binder/procs",
+        model: BinderProcess,
+
+        initialize: function (attrs, opts) {
+            var self = this;
+
+            self._binderServices = opts.binderServices;
+        },
+
+        getServiceByNode: function (n) {
+            var self = this;
+            return self._binderServices.getServiceByNode(n);
+        }
     });
 });
-

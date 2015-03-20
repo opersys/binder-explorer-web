@@ -16,10 +16,8 @@
 
 var express = require("express");
 var exStatic = require("serve-static");
-var fs = require("fs");
 var path = require("path");
 var http = require("http");
-var queue = require("queue");
 var _ = require("underscore");
 var pslook = require("pslook");
 var Binder = require("jslibbinder");
@@ -33,7 +31,7 @@ var server = http.createServer(app);
 var serviceManager = new Binder.ServiceManager();
 
 app.set("env", process.env.ENV || "development");
-app.set("port", process.env.PORT || 3000);
+app.set("port", process.env.PORT || 3200);
 app.set("views", path.join(__dirname, "views"));
 app.set("json spaces", 2);
 
@@ -75,12 +73,36 @@ app.get("/proc/:pid", function (req, res) {
     }, {fields: pslook.ALL});
 });
 
-app.get("/binder/:serviceName", function (req, res) {
+app.get("/binder/procs", function (req, res) {
+    try {
+        BinderUtils.readBinderStateFile(function (binderProcs) {
+            res.json(_.map(_.keys(binderProcs), function (binderProcPid) {
+                return { pid: binderProcPid  };
+            }));
+        });
+    } catch (ex) {
+        res.status(404).send();
+    }
+});
+
+app.get("/binder/procs/:pid([0-9]+)", function (req, res) {
+    try {
+        BinderUtils.readBinderStateFile(function (binderProcs) {
+            if (binderProcs[req.params.pid])
+                res.json(binderProcs[req.params.pid]);
+            else
+                res.status(404).send();
+        });
+    } catch (ex) {
+        res.status(404).send();
+    }
+});
+
+app.get("/binder/services/:serviceName", function (req, res) {
     try {
         // Make a catalog of node IDs to PID because findServiceNodeId doesn't provide
         // us with the PID.
-
-        BinderUtils.readAllBinderProcFiles(function (binderProcs) {
+        BinderUtils.readBinderStateFile(function (binderProcs) {
             var binderProcsByNode = {};
 
             _.each(_.keys(binderProcs), function (binderPid) {
@@ -95,15 +117,16 @@ app.get("/binder/:serviceName", function (req, res) {
             BinderUtils.findServiceNodeId(req.params.serviceName, function (node, iface) {
                 var response = {};
 
-                if (iface) response.iface = iface;
+                if (!node && !iface)
+                    res.json(response);
+                else {
+                    if (iface) response.iface = iface;
 
-                response.node = node;
-                response.pid = binderProcsByNode[node].pid;
-                response.threads = binderProcsByNode[node].threads;
-                response.refs = binderProcsByNode[node].refs;
-                response.nodes = binderProcsByNode[node].nodes;
+                    response.node = node;
+                    response.pid = binderProcsByNode[node].pid;
 
-                res.json(response);
+                    res.json(response);
+                }
             });
         });
     } catch (ex) {
@@ -111,7 +134,7 @@ app.get("/binder/:serviceName", function (req, res) {
     }
 });
 
-app.get("/binder", function (req, res) {
+app.get("/binder/services", function (req, res) {
     res.json(_.map(serviceManager.list(), function (serviceName) {
         return { name: serviceName }
     }));

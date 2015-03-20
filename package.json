@@ -25,7 +25,8 @@
         "grunt-mkdir": "*",
         "grunt-contrib-copy": "*",
         "grunt-chmod": "*",
-
-        "grunt-auto-install": "/home/neumann/Work/grunt-auto-install"
+        "grunt-auto-install": "*",
+        "grunt-contrib-compress": "*",
+        "grunt-exec": "*"
     }
 }

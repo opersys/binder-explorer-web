@@ -16,10 +16,27 @@
 
 define(function (require) {
     var Backbone = require("backbone");
-    var modelLoader = require("modelLoader");
+    var Process = require("models/Process");
 
     return Backbone.Model.extend({
-        idAttribute: "name"
+        idAttribute: "pid",
+
+        initialize: function () {
+            var self = this;
+
+            // Initialize a new Process object that we can fetch.
+            self.set("process", new Process({ pid: self.get("pid") }));
+        },
+
+        getServiceRefs: function () {
+            var self = this, serviceRefs = [], i;
+
+            _.each(self.get("refs"), function (ref) {
+                if ((i = self.collection.getServiceByNode(ref.node)))
+                    serviceRefs.push(i);
+            });
+
+            return serviceRefs;
+        }
     });
 });
-

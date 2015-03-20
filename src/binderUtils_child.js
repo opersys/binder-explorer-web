@@ -23,13 +23,14 @@ var sm = new Binder.ServiceManager();
 var knownNodes = [];
 var serviceObj = sm.getService(process.argv[2]);
 
-BinderUtils.readBinderProcFile(process.pid.toString(),
-    function (data) {
+BinderUtils.readBinderStateFile(
+    function (stateData) {
         var currentNodes = [], newNode, iface;
+        var procData = stateData[process.pid];
 
-        for (var ref in data.refs)
-            if (data.refs[ref].node != 1)
-                currentNodes.push(data.refs[ref].node);
+        for (var ref in procData.refs)
+            if (procData.refs[ref].node != 1)
+                currentNodes.push(procData.refs[ref].node);
 
         newNode = _.difference(currentNodes, knownNodes);
 
@@ -40,12 +41,20 @@ BinderUtils.readBinderProcFile(process.pid.toString(),
 
         newNode = newNode.pop();
         knownNodes = currentNodes;
-        iface = serviceObj.getInterface();
+        if (serviceObj) {
+            iface = serviceObj.getInterface();
 
-        if (process.send)
-            process.send({ node: newNode, iface: iface });
-        else
-            console.log("NODE: " + newNode + " IFACE: " + iface);
+            if (process.send)
+                process.send({ node: newNode, iface: iface });
+            else
+                console.log("NODE: " + newNode + " IFACE: " + iface);
+        }
+        else {
+            if (process.send)
+                process.send({ node: null, iface: null });
+            else
+                console.log("Error communicating with binder.");
+        }
     },
 
     function (err) {
@@ -53,7 +62,5 @@ BinderUtils.readBinderProcFile(process.pid.toString(),
             process.send({ node: null, iface: null });
         else
             console.log("Error opening the binder process file: ", err);
-    }
-);
-
+    });
 

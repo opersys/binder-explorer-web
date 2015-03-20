@@ -18,18 +18,18 @@ define(function (require) {
     var $ = require("jquery");
     var MainView = require("views/main");
     var Toolbar = require("views/toolbar");
+    var BinderProcesses = require("models/BinderProcesses");
     var BinderServices = require("models/BinderServices");
     var Functions = require("models/Functions");
-    var modelLoader = require("modelLoader");
 
     var binderServices = new BinderServices();
+    var binderProcesses = new BinderProcesses([], { binderServices: binderServices });
     var functions = new Functions();
-
-    modelLoader.fetch(binderServices);
 
     var mainView = new MainView({
         el: $("#app"),
         binderServices: binderServices,
+        binderProcesses: binderProcesses,
         functions: functions
     });
 

@@ -16,11 +16,12 @@
 
 define(function (require) {
     var Backbone = require("backbone");
-    var DependsView = require("views/depends-d3");
+    var DependsView = require("views/depends-d3-atom");
     var ServicesView = require("views/services");
     var ServicePreview = require("views/servicePreview");
     var $ = require("jquery");
     var w2ui = require("w2ui");
+    var ModelLoader = require("modelLoader");
 
     return Backbone.View.extend({
 
@@ -47,20 +48,58 @@ define(function (require) {
             var self = this;
 
             self._binderServices = opts.binderServices;
+            self._binderProcesses = opts.binderProcesses;
             self._functions = opts.functions;
             self._procs = opts.procs;
 
             self._dependsView = new DependsView({
                 binderServices: self._binderServices,
+                binderProcesses: self._binderProcesses,
                 functions: self._functions
             });
 
-            self._servicesView = new ServicesView({
-                binderServices: self._binderServices
+            self._modelLoader = new ModelLoader({
+                queueDone: function () {
+                    self._dependsView.renderGraph();
+                }
             });
 
-            self._servicePreview = new ServicePreview({
+            self._modelLoader.fetch({
+                item: self._binderServices,
+
+                itemDone: function (modelLoader) {
+                    self._binderServices.each(function (binderService) {
+                        modelLoader.fetch({
+                            item: binderService
+                        });
+                    });
+                }
             });
+
+            self._modelLoader.fetch({
+                item: self._binderProcesses,
+                itemDone: function (modelLoader) {
+                    self._binderProcesses.each(function (binderProcess) {
+                        modelLoader.fetch({
+                            item: binderProcess,
+
+                            itemDone: function () {
+
+                            }
+                        });
+
+                        modelLoader.fetch({
+                            item: binderProcess.get("process"),
+
+                            itemDone: function () {
+                            }
+                        });
+
+                    });
+                }
+            });
+
+            self._modelLoader.start();
 
             self.$el.w2layout({
                 name: self.getLayoutName(),
@@ -69,16 +108,6 @@ define(function (require) {
                         type: "main",
                         content: self._dependsView
                     },
-                    {
-                        type: "left",
-                        content: self._servicesView,
-                        size: 300
-                    },
-                    {
-                        type: "preview",
-                        content: self._servicePreview,
-                        resizable: true
-                    }
                 ],
                 onResize: function (ev) {
                     ev.onComplete = function () {
@@ -88,13 +117,6 @@ define(function (require) {
                 }
             });
 
-            self._servicesView.on("services_view:selected", function () {
-                self._onServiceSelected.apply(self, arguments);
-            });
-
-            self._servicesView.on("services_view:unselected", function () {
-                self._onServiceUnselected.apply(self, arguments);
-            });
 
             self._dependsView.on("depends_view:selected", function () {
                 self._onServiceSelected.apply(self, arguments);

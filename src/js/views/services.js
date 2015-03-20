@@ -37,13 +37,13 @@ define(function (require) {
 
             self._services = _.sortBy(self._services, function (name) {
                 var binderService = self._binderServices.get(name);
-                return binderService.getCaption();
+                return binderService.get("name");
             });
 
             w2ui["sidebar"].nodes[0].nodes = _.map(self._services, function (name) {
                 return {
                     id: name,
-                    text: self._binderServices.get(name).getCaption(),
+                    text: self._binderServices.get(name).get("name"),
                     nodes: [],
                     type: "service"
                 }
