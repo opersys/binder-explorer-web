@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Opersys inc.
+ * Copyright (C) 2015 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ define(function (require) {
                     text: self._binderServices.get(name).get("name"),
                     nodes: [],
                     type: "service"
-                }
+                };
             });
 
             w2ui["sidebar"].refresh();

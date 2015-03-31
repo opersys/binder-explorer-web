@@ -1,9 +1,14 @@
 {
     "name": "binder-explorer",
-    "version": "0.0.1",
+    "version": "0.5.0",
     "private": true,
+    "license": "Apache-2.0",
     "scripts": {
         "start": "node-android app.js"
+    },
+    "author": {
+        "name": "François-Denis Gonthier",
+        "email": "francois-denis.gonthier@opersys.com"
     },
     "dependencies": {
         "express": "*",
