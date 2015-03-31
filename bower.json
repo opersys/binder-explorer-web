@@ -1,8 +1,8 @@
 {
   "name": "binder-explorer-web",
-  "version": "0.0.0",
+  "version": "0.5.0",
   "authors": [
-    "François-Denis Gonthier <fdgonthier@lostwebsite.net>"
+    "François-Denis Gonthier <francois-denis.gonthier@opersys.com>"
   ],
   "moduleType": [
     "amd"
@@ -24,6 +24,7 @@
     "jquery-timer": "*",
     "queueManager": "*",
     "nprogress": "0.1.6",
-    "d3": "3.5.2"
+    "d3": "3.5.2",
+    "requirejs-bower": "2.1.16"
   }
 }
