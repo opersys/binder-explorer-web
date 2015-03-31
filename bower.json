@@ -17,7 +17,7 @@
     "tests"
   ],
   "dependencies": {
-    "w2ui": "1.4.2",
+    "w2ui": "git@github.com:fdgonthier/w2ui-dist.git#master",
     "jquery": "2.1.1",
     "backbone": "1.1.2",
     "underscore": "1.7.0",
