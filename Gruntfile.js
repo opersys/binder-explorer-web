@@ -19,19 +19,30 @@ var fs = require("fs");
 var path = require("path");
 var util = require("util");
 var _ = require("underscore");
+var Download = require("download");
 
 module.exports = function (grunt) {
 
     var mkdir_config = {},
         bower_config = {},
         copy_config = {},
+        prebuilts_config = {},
         exec_config = {},
-        compress_config = {};
+        compress_config = {}
+        has_config = false;
 
-    grunt.config.init({
-        pkg: grunt.file.readJSON("package.json"),
-        cfg: grunt.file.readJSON("config.json")
-    });
+    if (!fs.existsSync("config.json")) {
+        grunt.log.writeln("No config.json source found, won't be compiling modules.");
+        grunt.config.init({
+            pkg: grunt.file.readJSON("package.json")
+        });
+    } else {
+        grunt.config.init({
+            pkg: grunt.file.readJSON("package.json"),
+            cfg: grunt.file.readJSON("config.json")
+        });
+        has_config = true;
+    }
 
     _.each(["arm", "ia32"], function (arch) {
 
@@ -73,6 +84,7 @@ module.exports = function (grunt) {
             files: [
                 { src: ["package.json"], dest: mkdist("/") },
                 { expand: true, cwd: "bin", src: ["**"], dest: mkdist("_bin") },
+                { expand: true, cwd: "images", src: ["**"], dest: mkdist("public", "images") },
                 { expand: true, cwd: "src/css", src: ["*"], dest: mkdist("public", "css") },
                 { expand: true, cwd: "src/html", src: ["*"], dest: mkdist("public") },
                 { expand: true, cwd: "src/jslib", src: ["*"], dest: mkdist("public", "js") },
@@ -81,27 +93,36 @@ module.exports = function (grunt) {
             ]
         };
 
-        var toolchain_dir = grunt.config("cfg." + arch + "_toolchain_dir");
-        var toolchain_prefix = grunt.config("cfg." + arch + "_toolchain_prefix");
+        // Node binary module cross-compilation support.
+        if (has_config) {
+            var toolchain_dir = grunt.config("cfg." + arch + "_toolchain_dir");
+            var toolchain_prefix = grunt.config("cfg." + arch + "_toolchain_prefix");
 
-        exec_config["dist_npm_" + arch] = {
-            command: function() {
-                var cmd = [
-                    "PATH=" + path.join(toolchain_dir, "bin") + ":" + process.env["PATH"],
-                    "CC=" + toolchain_prefix + "-gcc",
-                    "CXX=" + toolchain_prefix + "-g++",
-                    "LINK=" + toolchain_prefix + "-g++",
-                    "AS=" + toolchain_prefix + "-as",
-                    "AR=" + toolchain_prefix + "-ar",
-                    "npm",
-                    "--production",
-                    "--arch=" + (arch == "arm" ? "arm" : "x86"),
-                    "--prefix=" + mkdist("/"),
-                    "--nodedir=" + grunt.config("cfg.nodedir"), "install"].join(" ");
-                grunt.log.writeln(cmd);
-                return cmd;
+            exec_config["dist_npm_" + arch] = {
+                command: function() {
+                    var cmd = [
+                        "PATH=" + path.join(toolchain_dir, "bin") + ":" + process.env["PATH"],
+                        "CC=" + toolchain_prefix + "-gcc",
+                        "CXX=" + toolchain_prefix + "-g++",
+                        "LINK=" + toolchain_prefix + "-g++",
+                        "AS=" + toolchain_prefix + "-as",
+                        "AR=" + toolchain_prefix + "-ar",
+                        "npm",
+                        "--production",
+                        "--arch=" + (arch == "arm" ? "arm" : "x86"),
+                        "--prefix=" + mkdist("/"),
+                        "--nodedir=" + grunt.config("cfg.nodedir"), "install"].join(" ");
+                    grunt.log.writeln(cmd);
+                    return cmd;
+                }
+            };
+        } else {
+            exec_config["dist_npm_" + arch] = {
+                command: function() {
+                    return "npm --production --prefix=" + mkdist("/") + " install";
+                }
             }
-        };
+        }
 
         exec_config["dist_md5sum_" + arch] = {
             command: [
@@ -118,11 +139,24 @@ module.exports = function (grunt) {
             files: [{ expand: true, cwd: "./dist_" + arch, src: ["./**"] }]
         };
 
+        prebuilts_config["dist_" + arch] = _.map(grunt.config("pkg.prebuilts.modules." + arch), function (v) {
+            return {
+                url: v,
+                dest: mkdist("node_modules")
+            }
+        }).concat(_.map(grunt.config("pkg.prebuilts.misc." + arch), function (v) {
+                return {
+                    url: v,
+                    dest: mkdist()
+                }
+            }));
+
         grunt.registerTask("dist_" + arch, [
             "mkdir:dist_" + arch,
             "bower:dist_" + arch,
             "copy:dist_" + arch,
-            "exec:dist_npm_" + arch,
+            "prebuilts:dist_" + arch,
+            "exec:dist_npm_" + arch
         ]);
 
         grunt.registerTask("out_" + arch, [
@@ -136,6 +170,7 @@ module.exports = function (grunt) {
     grunt.config("bower", bower_config);
     grunt.config("copy", copy_config);
     grunt.config("exec", exec_config);
+    grunt.config("prebuilts", prebuilts_config);
     grunt.config("compress", compress_config);
 
     grunt.registerTask("toolchain", "Generate an Android toolchain", function (arch) {
@@ -177,6 +212,21 @@ module.exports = function (grunt) {
                     }
                 );
             }
+        });
+    });
+
+    grunt.registerMultiTask("prebuilts", "Download a prebuilt stuff from an URL", function () {
+        var data = this.data;
+        var done = this.async();
+        var dl = new Download({ extract: true });
+
+        _.each(data, function (dldata) {
+            grunt.log.writeln("Downloading " + dldata.url);
+            dl.get(dldata.url, dldata.dest)
+        });
+
+        dl.run(function () {
+            done();
         });
     });
 
