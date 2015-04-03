@@ -49,7 +49,7 @@ Push `dist_ia32` or `dist_arm` to your target device, depending on the architect
 
 > adb push dist_ia32 /data/local/tmp
 
-You can use `/data/local/tmp` or any other directory of your choice. Not that Binder Explorer needs root access to obtain Binder relationships information. This means that it is better suited for development device or emulators.
+You can use `/data/local/tmp` or any other directory of your choice. Note that Binder Explorer needs root access to obtain Binder relationships information. This means that it is better suited for development device or emulators than for plain Android devices.
 
 On the device (`adb shell`), go into the `/data/local/tmp` directory and run
 
