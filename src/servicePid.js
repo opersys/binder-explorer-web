@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-var Binder = require("jslibbinder");
+var Binder = require("jsbinder");
 var Guid = require("guid");
 var child_process = require("child_process");
 var Queue = require("queue");

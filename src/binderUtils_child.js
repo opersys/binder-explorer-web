@@ -16,7 +16,7 @@
 
 var _ = require("underscore");
 
-var Binder = require("jslibbinder");
+var Binder = require("jsbinder");
 var BinderUtils = require("./binderUtils.js");
 
 var sm = new Binder.ServiceManager();

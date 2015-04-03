@@ -20,7 +20,7 @@ var path = require("path");
 var http = require("http");
 var _ = require("underscore");
 var pslook = require("pslook");
-var Binder = require("jslibbinder");
+var Binder = require("jsbinder");
 
 // Local modules
 var BinderUtils = require("./binderUtils.js");

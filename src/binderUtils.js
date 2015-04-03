@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-var Binder = require("jslibbinder");
+var Binder = require("jsbinder");
 var Queue = require("queue");
 var Guid = require("guid");
 var fs = require("fs");

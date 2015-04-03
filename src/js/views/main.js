@@ -17,11 +17,12 @@
 define(function (require) {
     var Backbone = require("backbone");
     var DependsView = require("views/depends-d3-atom");
-    var ServicesView = require("views/services");
-    var ServicePreview = require("views/servicePreview");
+    //var ServicesView = require("views/services");
+    //var ServicePreview = require("views/servicePreview");
     var $ = require("jquery");
     var w2ui = require("w2ui");
     var ModelLoader = require("modelLoader");
+    var Operation = require("models/Operation");
 
     return Backbone.View.extend({
 
@@ -49,7 +50,7 @@ define(function (require) {
 
             self._binderServices = opts.binderServices;
             self._binderProcesses = opts.binderProcesses;
-            self._functions = opts.functions;
+            self._operations = opts.operations;
             self._procs = opts.procs;
 
             self._dependsView = new DependsView({
@@ -107,7 +108,7 @@ define(function (require) {
                     {
                         type: "main",
                         content: self._dependsView
-                    },
+                    }
                 ],
                 onResize: function (ev) {
                     ev.onComplete = function () {
@@ -116,7 +117,6 @@ define(function (require) {
                     };
                 }
             });
-
 
             self._dependsView.on("depends_view:selected", function () {
                 self._onServiceSelected.apply(self, arguments);

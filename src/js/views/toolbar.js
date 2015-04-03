@@ -25,21 +25,44 @@ define(function (require) {
 
         _onToolbarClick: function (event) {
             var self = this;
-            var fun = self._functions.get(event.target)
+            var fun = self._operations.get(event.target);
 
             fun.execute();
         },
 
-        _onFunctionAdd: function (fun) {
+        _onToolbarAfterRender: function (event) {
+            var self = this;
+
+            // Add the onclick callback on the IMAGE buttons only.
+            self._operations.each(function (fun) {
+                if (fun.get("image")) {
+                    $("#" + fun.get("name")).on("click", function () {
+                        self._onToolbarClick({ target: fun.get("id") });
+                    });
+                }
+            });
+        },
+
+        _addFunctions: function () {
             var self = this;
             var tb = w2ui[self._toolbarName];
             var tbItems = tb.items;
 
-            self._functions.each(function (fun) {
+            self._operations.each(function (fun) {
                 if (!_.findWhere(tbItems, {id: fun.get("id")})) {
-                    tbItems.push({
-                        type: "button", id: fun.get("id"), caption: fun.get("name")
-                    });
+                    if (fun.get("image")) {
+                        tbItems.push({
+                            type: "html",
+                            id: fun.get("id"),
+                            html: "<img id='" + fun.get("name") + "'"
+                                + " alt='" + fun.get("caption") + "'"
+                                + " src='" + fun.get("image") + "'/>"
+                        });
+                    } else {
+                        tbItems.push({
+                            type: "button", id: fun.get("id"), caption: fun.get("name")
+                        });
+                    }
                 }
             });
 
@@ -50,14 +73,15 @@ define(function (require) {
                 });
             }
 
-            tb.refresh();
+            tb.render();
         },
 
         initialize: function (opts) {
             var self = this;
 
-            self._functions = opts.functions;
+            self._operations = opts.operations;
             self._toolbarName = _.uniqueId("toolbar");
+            self._logo = opts.logo;
 
             self.$el.w2toolbar({
                 name: self._toolbarName,
@@ -68,9 +92,19 @@ define(function (require) {
                 self._onToolbarClick.apply(self, [event])
             });
 
-            self._functions.on("add", function (fun) {
-                self._onFunctionAdd.apply(self, [fun]);
+            w2ui[self._toolbarName].on("render", function (event) {
+                event.onComplete = function () {
+                    self._onToolbarAfterRender.apply(self, [event]);
+                };
             });
+
+            self._operations.on("add", function (fun) {
+                self._addFunctions.apply(self, [fun]);
+            });
+
+            self._addFunctions();
+
+            w2ui[self._toolbarName].render();
         }
     });
 });

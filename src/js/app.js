@@ -20,23 +20,52 @@ define(function (require) {
     var Toolbar = require("views/toolbar");
     var BinderProcesses = require("models/BinderProcesses");
     var BinderServices = require("models/BinderServices");
-    var Functions = require("models/Functions");
+    var Operations = require("models/Operations");
+    var Operation = require("models/Operation");
 
     var binderServices = new BinderServices();
     var binderProcesses = new BinderProcesses([], { binderServices: binderServices });
-    var functions = new Functions();
+    var operations = new Operations();
 
     var mainView = new MainView({
         el: $("#app"),
         binderServices: binderServices,
         binderProcesses: binderProcesses,
-        functions: functions
+        operations: operations
     });
 
     var mainToolbar = new Toolbar({
         el: $("#toolbar"),
-        functions: functions
+        operations: operations
     });
+
+    operations.add(new Operation({
+        id: "homepage",
+        name: "opOpersysSite",
+        caption: "Opersys Site",
+        image: "images/opersys_land_logo.png",
+        context: mainView,
+
+        callback: function () {
+            window.location = "http://opersys.com";
+        }
+    }));
+
+    operations.add(new Operation({
+        id: "about",
+        name: "opAbout",
+        caption: "Copyright",
+        image: "images/copyright.png",
+        context: mainView,
+
+        callback: function () {
+            w2popup.load({
+                width: "640",
+                height: "480",
+                url: "/apropos.html"
+            });
+        }
+    }));
 
     var resizeWindow = function () {
         $("#app")

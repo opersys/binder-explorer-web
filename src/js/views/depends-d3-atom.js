@@ -17,7 +17,7 @@
 define(function (require) {
     var Backbone = require("backbone");
     var BinderServices = require("models/BinderServices");
-    var Function = require("models/Function");
+    var Operation = require("models/Operation");
     var d3 = require("d3/d3");
     var $ = require("jquery");
     var _ = require("underscore");
