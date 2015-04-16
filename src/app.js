@@ -57,22 +57,22 @@ fs.stat(defaultIcon, function (err, defStat) {
     });
 });
 
-app.get("/icon/:app", function (req, res) {
+/**
+ * Fetch the an icon for a particular package.
+ */
+function fetchIcon (pkg, options) {
     var imgBuf;
+    var hasDefault = (options.default && options.default != '');
 
-    res.set("Content-type", "image/png");
-    res.set("Cache-Control", "public, max-age=86400000");
-
-    // Check in the disk cache.
-    if (!(imgBuf = imgCache.get(req.params.app))) {
+    // Check in the memory cache.
+    if (!(imgBuf = imgCache.get(pkg))) {
         // Stream a request.
 
-        http.get("http://localhost:3001/icon/" + req.params.app, function (r) {
+        http.get("http://localhost:3001/icon/" + pkg, function (r) {
             var newImgBuf, sz, idx = 0;
 
             if (r.statusCode == 200) {
                 sz = parseInt(r.headers["content-length"]);
-                res.set("Content-length", sz);
                 newImgBuf = new Buffer(sz);
 
                 r.on("data", function (imgChunk) {
@@ -81,34 +81,63 @@ app.get("/icon/:app", function (req, res) {
                 });
 
                 r.on("end", function () {
-                    imgCache.set(req.params.app, newImgBuf, 86400000);
-                    res.write(newImgBuf, function () {
-                        res.end();
-                    });
+                    imgCache.set(pkg, newImgBuf, 86400000);
+                    if (options.success) options.success(newImgBuf);
                 });
             }
             else {
-                imgBuf = imgCache.get("default");
-                res.set("Content-length", imgBuf.length);
-                res.write(imgBuf, function () {
-                    res.end();
-                });
+                if (hasDefault) {
+                    imgBuf = imgCache.get("default");
+                    if (options.success) options.success(imgBuf);
+                } else {
+                    if (options.error) options.error();
+                }
             }
         }).on("error",
             function () {
-                imgBuf = imgCache.get("default");
-                res.set("Content-length", imgBuf.length);
-                res.write(imgBuf, function () {
-                    res.end();
-                });
+                if (hasDefault) {
+                    imgBuf = imgCache.get("default");
+                    if (options.success) options.success(imgBuf);
+                } else {
+                    if (options.error) options.error();
+                }
             });
     }
     else {
-        res.set("Content-length", imgBuf.length);
-        res.write(imgBuf, function () {
-            res.end();
-        });
+        if (options.success) options.success(imgBuf);
     }
+}
+
+app.head("/icon/:app", function (req, res) {
+    res.set("Content-type", "image/png");
+    res.set("Cache-Control", "public, max-age=86400000");
+
+    fetchIcon(req.params.app, {
+        success: function (imgBuf) {
+            res.set("Content-length", imgBuf.length);
+            res.end();
+        },
+        error: function () {
+            res.status(404).end();
+        }
+    });
+});
+
+app.get("/icon/:app", function (req, res) {
+    res.set("Content-type", "image/png");
+    res.set("Cache-Control", "public, max-age=86400000");
+
+    fetchIcon(req.params.app, {
+        success: function (imgBuf) {
+            res.set("Content-length", imgBuf.length);
+            res.write(imgBuf, function () {
+                res.end();
+            });
+        },
+        error: function () {
+            res.status(404).end();
+        }
+    });
 });
 
 // Routes.
