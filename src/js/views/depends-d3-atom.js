@@ -179,7 +179,7 @@ define(function (require) {
                                     return "translate(-15, -15)";
                                 })
                                 .attr("xlink:xlink:href", function (d) {
-                                    return "http://localhost:3001/icon/" + d.get("process").get("cmdline")[0];
+                                    return "http://localhost:3200/icon/" + d.get("process").get("cmdline")[0];
                                 });
                         }
                     }
