@@ -24,6 +24,35 @@ define(function (require) {
 
     return Backbone.View.extend({
 
+        _fetchIcon: function (d) {
+            var self = this;
+
+            $.ajax("http://localhost:3200/icon/" + d.get("process").get("cmdline")[0], {
+                type: "HEAD",
+                success: function (data, status, jqXHR) {
+                    console.log("Icon found for " + d.get("pid"));
+
+                    // Clear the selection elements.
+                    $("#pid_" + d.id).empty();
+
+                    // Replace the element by an image.
+                    d3.select("#pid_" + d.id)
+                        .append("image")
+                        .attr("width", 24)
+                        .attr("height", 24)
+                        .attr("transform", function (d) {
+                            return "translate(-15, -15)";
+                        })
+                        .attr("xlink:xlink:href", function (d) {
+                            return "http://localhost:3200/icon/" + d.get("process").get("cmdline")[0];
+                        });
+                },
+                error: function () {
+                    console.log("No icon found for " + d.get("pid"));
+                }
+            });
+        },
+
         _tick: function (e) {
             var self = this, rs, ls;
 
@@ -93,6 +122,12 @@ define(function (require) {
             self._node = self._allNodes
                 .enter()
                 .append("g")
+                .attr("id", function (d) {
+                    if (d.collection == self._binderServices)
+                        return "service_" + d.id;
+                    else
+                        return "pid_" + d.id;
+                })
                 .on("mouseover", function (d, i) {
                     d3.select(this)
                         .select("circle")
@@ -154,34 +189,24 @@ define(function (require) {
                     }
 
                     if (!d.pos) {
-                        if (d.get("process").get("cmdline")[0].indexOf(".") == -1) {
-                            d3.select(this)
-                                .append("text")
-                                .attr("font-weight", "bold")
-                                .attr("transform", function (d) {
-                                    return "translate(" + d.radius + "," + d.radius + ")";
-                                })
-                                .text(function (d) {
-                                    return d.get("pid");
-                                });
+                        d3.select(this)
+                            .append("text")
+                            .attr("font-weight", "bold")
+                            .attr("transform", function (d) {
+                                return "translate(" + d.radius + "," + d.radius + ")";
+                            })
+                            .text(function (d) {
+                                return d.get("pid");
+                            });
 
-                            d3.select(this)
-                                .append("circle")
-                                .attr("r", function (d) {
-                                    return d.radius;
-                                });
-                        } else {
-                            d3.select(this)
-                                .append("image")
-                                .attr("width", 24)
-                                .attr("height", 24)
-                                .attr("transform", function (d) {
-                                    return "translate(-15, -15)";
-                                })
-                                .attr("xlink:xlink:href", function (d) {
-                                    return "http://localhost:3200/icon/" + d.get("process").get("cmdline")[0];
-                                });
-                        }
+                        d3.select(this)
+                            .append("circle")
+                            .attr("r", function (d) {
+                                return d.radius;
+                            });
+
+                        // Schedule a timer to fetch the icon for this process.
+                        setTimeout(function () { self._fetchIcon(d); }, 0);
                     }
                 });
 
