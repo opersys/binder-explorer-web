@@ -35,22 +35,6 @@ app.set("port", process.env.PORT || 3200);
 app.set("views", path.join(__dirname, "views"));
 app.set("json spaces", 2);
 
-/*
-API draft:
-
-/binder: List of services
-  Returns: a simple flat list of service names.
-
-/binder/:serviceName: Fetch informations about the service called 'serviceName'
-  A JSON object containing the following data:
-    pid: Likely PID of the service or nothing if no PID was found.
-    iface: Interface implemented by the service or nothing if no PID was found.
-
-/proc: List all the process in the system
-/proc/:pid: Detail about one specific process.
-
-*/
-
 // Static files.
 app.use(exStatic(path.join(__dirname, "public"), { index: false }));
 
