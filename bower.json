@@ -18,6 +18,7 @@
   ],
   "dependencies": {
     "w2ui": "git@github.com:fdgonthier/w2ui-dist.git#master",
+    "d3-tip": "0.6.6",
     "jquery": "2.1.1",
     "backbone": "1.1.2",
     "underscore": "1.7.0",
@@ -26,5 +27,8 @@
     "nprogress": "0.1.6",
     "d3": "3.5.2",
     "requirejs-bower": "2.1.16"
+  },
+  "resolutions": {
+    "d3": "3.5.2"
   }
 }

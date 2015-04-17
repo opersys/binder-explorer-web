@@ -18,9 +18,10 @@ define(function (require) {
     var Backbone = require("backbone");
     var BinderServices = require("models/BinderServices");
     var Operation = require("models/Operation");
-    var d3 = require("d3/d3");
+    var d3 = require("d3");
     var $ = require("jquery");
     var _ = require("underscore");
+    d3.tip = require("d3-tip/index");
 
     return Backbone.View.extend({
 
@@ -88,6 +89,11 @@ define(function (require) {
             self._binderServices = opts.binderServices;
             self._binderProcesses = opts.binderProcesses;
             self._functions = opts.functions;
+            self._tip = d3.tip().attr("class", "d3-tip").html(
+                function (d) {
+                    return d.get("process").get("cmdline")[0];
+                }
+            );
         },
 
         resize: function () {},
@@ -133,10 +139,12 @@ define(function (require) {
                         .select("circle")
                         .attr("fill", "red");
 
-                    if (d.collection == self._binderProcesses)
+                    if (d.collection == self._binderProcesses) {
                         d3.selectAll(".link.source-" + d.id)
                             .attr("stroke", "red")
                             .attr("stroke-width", 3);
+                        self._tip.show(d);
+                    }
                     else if (d.collection == self._binderServices)
                         d3.selectAll(".link.target-" + d.id)
                             .attr("stroke", "red")
@@ -155,6 +163,8 @@ define(function (require) {
                         d3.selectAll(".link.target-" + d.id)
                             .attr("stroke", "lightgray")
                             .attr("stroke-width", "1");
+
+                    self._tip.hide(d);
                 });
 
             self._node
@@ -265,9 +275,11 @@ define(function (require) {
 
             self._svg = d3.select(self.box)
                 .append("svg")
+                .call(self._tip)
                 .attr("width", w)
                 .attr("height", h)
                 .attr("xmlns", "http://www.w3.org/2000/svg");
+
             self._linkBox = self._svg.append("g");
             self._nodeBox = self._svg.append("g");
 

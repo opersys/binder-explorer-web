@@ -56,7 +56,8 @@ requirejs.config({
         "sigma.plugins.customEdgeShapes": "sigma.js/plugins/sigma.renderers.customEdgeShapes.min",*/
         underscore: "underscore/underscore",
         backbone: "backbone/backbone",
-        jquery: "jquery/jquery"
+        jquery: "jquery/jquery",
+        d3: "d3/d3"
     },
     packages: []
 });

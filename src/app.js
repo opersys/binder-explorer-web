@@ -39,7 +39,7 @@ app.set("views", path.join(__dirname, "views"));
 app.set("json spaces", 2);
 
 // Static files.
-app.use(exStatic(path.join(__dirname, "public"), { index: false }));
+app.use(exStatic(path.join(__dirname, "public"), k{ index: false }));
 
 var imgCache = new cache();
 
