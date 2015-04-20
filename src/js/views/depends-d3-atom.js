@@ -233,7 +233,9 @@ define(function (require) {
                 .start();
         },
 
-        //
+        /**
+         * Precalculate the position on the circle.
+         */
         _prepareCircle: function (n) {
             var self = this;
             var cPos = [], pos;
@@ -267,7 +269,7 @@ define(function (require) {
 
             w = $(self.box).width();
             h = $(self.box).height();
-            r = $(self.box).width() * 0.25;
+            r = $(self.box).width() * 0.35;
 
             self._centerX = w / 2;
             self._centerY = h / 2;
