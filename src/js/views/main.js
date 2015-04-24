@@ -17,7 +17,7 @@
 define(function (require) {
     var Backbone = require("backbone");
     var DependsView = require("views/depends-d3-atom");
-    //var ServicesView = require("views/services");
+    var ServicesView = require("views/services");
     //var ServicePreview = require("views/servicePreview");
     var $ = require("jquery");
     var w2ui = require("w2ui");
@@ -32,17 +32,18 @@ define(function (require) {
             return "layout";
         },
 
-        _onServiceSelected: function (selectedBinderServices) {
+        _onServiceSelected: function (type, id) {
             var self = this;
 
-            self._dependsView.select(selectedBinderServices);
-            self._servicePreview.preview(selectedBinderServices);
+            self._dependsView.select(type, id);
+            self._serviceView.select(type, id);
         },
 
-        _onServiceUnselected: function (unselectedBinderServices) {
+        _onServiceUnselected: function (type, id) {
             var self = this;
 
-            self._dependsView.unselect(unselectedBinderServices);
+            self._dependsView.unselect(type, id);
+            self._serviceView.unselect(type, id);
         },
 
         initialize: function (opts) {
@@ -57,6 +58,11 @@ define(function (require) {
                 binderServices: self._binderServices,
                 binderProcesses: self._binderProcesses,
                 functions: self._functions
+            });
+
+            self._serviceView = new ServicesView({
+                binderServices: self._binderServices,
+                binderProcesses: self._binderProcesses
             });
 
             self._modelLoader = new ModelLoader({
@@ -108,6 +114,11 @@ define(function (require) {
                     {
                         type: "main",
                         content: self._dependsView
+                    },
+                    {
+                        type: "left",
+                        content: self._serviceView,
+                        size: 200
                     }
                 ],
                 onResize: function (ev) {
@@ -116,6 +127,14 @@ define(function (require) {
                             self._dependsView.resize();
                     };
                 }
+            });
+
+            self._serviceView.on("services_view:selected", function () {
+                self._onServiceSelected.apply(self, arguments);
+            });
+
+            self._serviceView.on("services_view:unselected", function () {
+                self._onServiceUnselected.apply(self, arguments);
             });
 
             self._dependsView.on("depends_view:selected", function () {

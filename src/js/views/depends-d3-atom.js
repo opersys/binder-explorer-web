@@ -25,6 +25,8 @@ define(function (require) {
 
     return Backbone.View.extend({
 
+        selectedItem: null,
+
         _fetchIcon: function (d) {
             var self = this;
 
@@ -96,6 +98,60 @@ define(function (require) {
             );
         },
 
+        _onItemOut: function (target, data) {
+            var self = this;
+
+            d3.select(target).select("circle").classed({"hover": false});
+
+            if (data.collection == self._binderProcesses) {
+                d3.selectAll(".link.source-" + data.id).classed({"hover": false});
+                self._tip.hide(data);
+            }
+            else if (data.collection == self._binderServices)
+                d3.selectAll(".link.target-" + data.id).classed({"hover": false});
+        },
+
+        _onItemOver: function (target, data) {
+            var self = this;
+
+            d3.select(target).select("circle").classed({"hover": true});
+
+            if (data.collection == self._binderProcesses) {
+                d3.selectAll(".link.source-" + data.id).classed({"hover": true});
+                self._tip.show(data);
+            }
+            else if (data.collection == self._binderServices)
+                d3.selectAll(".link.target-" + data.id).classed({"hover": true});
+        },
+
+        /*
+         * Select a node on the screen.
+         */
+        select: function (type, id) {
+            if (type == "process") {
+                d3.select("#process_" + id).select("circle").classed({"hover": true});
+                d3.selectAll(".link.source-" + id).classed({"hover": true});
+            }
+            else if (type == "service") {
+                d3.select("#service_" + id).select("circle").classed({"hover": true});
+                d3.selectAll(".link.target-" + id).classed({"hover": true});
+            }
+        },
+
+        /*
+         *
+         */
+        unselect: function (type, id) {
+            if (type == "process") {
+                d3.select("#process_" + id).select("circle").classed({"hover": false});
+                d3.selectAll(".link.source-" + id).classed({"hover": false});
+            }
+            else if (type == "service") {
+                d3.select("#service_" + id).select("circle").classed({"hover": false});
+                d3.selectAll(".link.target-" + id).classed({"hover": false});
+            }
+        },
+
         resize: function () {},
 
         renderGraph: function () {
@@ -134,37 +190,11 @@ define(function (require) {
                     else
                         return "pid_" + d.id;
                 })
-                .on("mouseover", function (d, i) {
-                    d3.select(this)
-                        .select("circle")
-                        .attr("fill", "red");
-
-                    if (d.collection == self._binderProcesses) {
-                        d3.selectAll(".link.source-" + d.id)
-                            .attr("stroke", "red")
-                            .attr("stroke-width", 3);
-                        self._tip.show(d);
-                    }
-                    else if (d.collection == self._binderServices)
-                        d3.selectAll(".link.target-" + d.id)
-                            .attr("stroke", "red")
-                            .attr("stroke-width", 3);
+                .on("mouseover", function (data, i) {
+                    self._onItemOver(this, data);
                 })
-                .on("mouseout", function (d, i) {
-                    d3.select(this)
-                        .select("circle")
-                        .attr("fill", "black");
-
-                    if (d.collection == self._binderProcesses)
-                        d3.selectAll(".link.source-" + d.id)
-                            .attr("stroke", "lightgray")
-                            .attr("stroke-width", "1");
-                    else if (d.collection == self._binderServices)
-                        d3.selectAll(".link.target-" + d.id)
-                            .attr("stroke", "lightgray")
-                            .attr("stroke-width", "1");
-
-                    self._tip.hide(d);
+                .on("mouseout", function (data, i) {
+                    self._onItemOut(this, data);
                 });
 
             self._node
@@ -193,6 +223,10 @@ define(function (require) {
 
                         d3.select(this)
                             .append("circle")
+                            .attr("class", "node")
+                            .attr("id", function (d) {
+                                return d.get("service_" + d.get("id"));
+                            })
                             .attr("r", function (d) {
                                 return d.radius;
                             });
@@ -211,6 +245,10 @@ define(function (require) {
 
                         d3.select(this)
                             .append("circle")
+                            .attr("id", function (d) {
+                                return d.get("process_" + d.get("id"));
+                            })
+                            .attr("class", "node")
                             .attr("r", function (d) {
                                 return d.radius;
                             });
@@ -225,8 +263,7 @@ define(function (require) {
                 .append("line")
                 .attr("class", function(d) {
                     return "link source-" + d.source.id + " target-" + d.target.id;
-                })
-                .attr("stroke", "lightgray");
+                });
 
             self._force
                 .nodes(self._nodes)

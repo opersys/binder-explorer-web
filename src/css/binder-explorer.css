@@ -18,6 +18,36 @@ body {
     margin: 0 0 0 0
 }
 
+circle.node {
+    fill: black;
+}
+
+circle.node.hover {
+    fill: red;
+}
+
+/* Color of the hovered links */
+line.link.hover {
+    stroke: red;
+}
+
+/* Color of the selected links */
+line.link.selected {
+
+}
+
+/* Color of neutral links */
+line.link {
+    stroke: lightgray;
+}
+
+/* Color of the hovered nodes */
+
+/* Hack the appearance of the service list bar. */
+.w2ui-sidebar .w2ui-sidebar-div .w2ui-node {
+    /* Couldn't figure out anything good. */
+}
+
 .d3-tip {
     line-height: 1;
     font-weight: bold;

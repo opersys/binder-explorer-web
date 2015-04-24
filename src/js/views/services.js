@@ -28,7 +28,7 @@ define(function (require) {
         // Sorted by service name.
         _services: [],
 
-        _selectedServices: [],
+        _selectedServices: null,
 
         _refreshSidebar: function () {
             var self = this;
@@ -40,6 +40,11 @@ define(function (require) {
                 return binderService.get("name");
             });
 
+            self._processes = _.sortBy(self._processes, function (pid) {
+                var binderProcess = self._binderProcesses.get(pid);
+                return binderProcess.get("name")
+            });
+
             w2ui["sidebar"].nodes[0].nodes = _.map(self._services, function (name) {
                 return {
                     id: name,
@@ -47,6 +52,15 @@ define(function (require) {
                     nodes: [],
                     type: "service"
                 };
+            });
+
+            w2ui["sidebar"].nodes[1].nodes = _.map(self._processes, function (pid) {
+                return {
+                    id: pid,
+                    text: self._binderProcesses.get(pid).get("pid"),
+                    nodes: [],
+                    type: "process"
+                }
             });
 
             w2ui["sidebar"].refresh();
@@ -61,44 +75,31 @@ define(function (require) {
             self._refreshSidebar();
         },
 
-        // Add services to the right PID.
-        _onServiceNodeAdded: function (node) {
-            var self = this, targetSbNode;
-            var binderService = self._binderServices.findByNodeId(node);
+        _onProcessAdded: function (binderProcess) {
+            var self = this;
 
-            if (!self._s) return;
+            if (binderProcess) {
+                self._processes.push(binderProcess.get("pid"));
 
-            targetSbNode = _.findWhere(w2ui["sidebar"].nodes[1].nodes, { id: binderService.get("pid") });
-
-            if (!_.findWhere(targetSbNode.nodes, { id: binderService.get("name") })) {
-                targetSbNode.nodes.push({
-                    id: binderService.get("name"),
-                    text: binderService.get("name"),
-                    nodes: [],
-                    type: "service"
+                binderProcess.get("process").on("change", function (model, coll, opts) {
+                    self._onProcessChanged.apply(self, arguments);
                 });
-
-                targetSbNode.nodes = _.sortBy(targetSbNode.nodes, function (sbNode) {
-                    return sbNode.id;
-                });
-
-                w2ui["sidebar"].refresh();
             }
+
+            self._refreshSidebar();
         },
 
-        // Add the PID to the list.
-        _onServicePidAdded: function (pid) {
-            if (!w2ui["sidebar"]) return;
+        /*
+         * When processs are added to the main collection, they only get their PID.
+         * We have to subscribe to their change to have more details such as the
+         * process true name.
+         */
+        _onProcessChanged: function (process) {
+            var self = this, node;
 
-            w2ui["sidebar"].nodes[1].nodes.push({
-                id: pid,
-                text: pid,
-                type: "pid",
-                nodes: []
-            });
-            w2ui["sidebar"].nodes[1].nodes = _.sortBy(w2ui["sidebar"].nodes[1].nodes, function (sbNode) {
-                return sbNode.id;
-            });
+            node = w2ui["sidebar"].get("processes", process.get("pid"));
+            node.text = process.get("pid") + ": " + process.get("cmdline")[0];
+            w2ui["sidebar"].set("processes", process.get("pid"), node);
 
             w2ui["sidebar"].refresh();
         },
@@ -106,33 +107,35 @@ define(function (require) {
         _onServiceListClick: function (event) {
             var self = this;
 
-            if (self._selectedServices.length > 0) {
-                self.trigger("services_view:unselected", self._selectedServices);
-                self._selectedServices = [];
+            if (self._selectedService) {
+                self.trigger("services_view:unselected", self._selectedService.type, self._selectedService.id);
+                self._selectedServices = null;
             }
 
-            switch (event.node.type) {
-                case "pid":
-                    self._selectedServices = self._binderServices.getServicesInPid(event.node.id);
-                    break;
-
-                case "service":
-                    self._selectedServices = [self._binderServices.get(event.target)];
-                    break;
-            }
-
-            if (self._selectedServices.length > 0)
-                self.trigger("services_view:selected", self._selectedServices);
+            self._selectedService = {};
+            self._selectedService.type = event.node.type;
+            self._selectedService.id = event.node.id;
+            self.trigger("services_view:selected", self._selectedService.type, self._selectedService.id);
         },
 
-        select: function (binderService) {
-             w2ui["sidebar"].select(binderService.get("pid"));
+        select: function (type, id) {
+            var self = this;
+
+            if (self._selectedService && self._selectedService.id != id)
+                self.unselect(type, id);
+
+            w2ui["sidebar"].select(id);
+        },
+
+        unselect: function (type, id) {
+            var self = this;
+
+            w2ui["sidebar"].unselect(id);
+            self._selectedService = null;
         },
 
         render: function () {
             var self = this;
-
-            console.log("services.js object: render called");
 
             // self.box is set by w2ui.
             self.$el = $(self.box);
@@ -160,24 +163,21 @@ define(function (require) {
             var self = this;
 
             self._binderServices = opts.binderServices;
+            self._binderProcesses = opts.binderProcesses;
 
             self._binderServices.on("add", function () {
                 self._onServiceAdded.apply(self, arguments);
-            });
-
-            self._binderServices.on("services:newpid", function () {
-                self._onServicePidAdded.apply(self, arguments);
             });
 
             self._binderServices.on("services:newnode", function () {
                 self._onServiceNodeAdded.apply(self, arguments);
             });
 
-            self._binderServices.on("change:process", function (model, coll, opts) {
-                self._onServiceProcessChanged.apply(self, arguments);
+            self._binderServices.on("remove", function (model, coll, opts) {
             });
 
-            self._binderServices.on("remove", function (model, coll, opts) {
+            self._binderProcesses.on("add", function () {
+                self._onProcessAdded.apply(self, arguments);
             });
         }
     });
