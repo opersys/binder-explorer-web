@@ -129,12 +129,12 @@ define(function (require) {
          */
         select: function (type, id) {
             if (type == "process") {
-                d3.select("#process_" + id).select("circle").classed({"hover": true});
-                d3.selectAll(".link.source-" + id).classed({"hover": true});
+                d3.select("#pid_" + id).select("circle").classed({"selected": true});
+                d3.selectAll(".link.source-" + id).classed({"selected": true});
             }
             else if (type == "service") {
-                d3.select("#service_" + id).select("circle").classed({"hover": true});
-                d3.selectAll(".link.target-" + id).classed({"hover": true});
+                d3.select("#service_" + id).select("circle").classed({"selected": true});
+                d3.selectAll(".link.target-" + id).classed({"selected": true});
             }
         },
 
@@ -143,12 +143,12 @@ define(function (require) {
          */
         unselect: function (type, id) {
             if (type == "process") {
-                d3.select("#process_" + id).select("circle").classed({"hover": false});
-                d3.selectAll(".link.source-" + id).classed({"hover": false});
+                d3.select("#pid_" + id).select("circle").classed({"selected": false});
+                d3.selectAll(".link.source-" + id).classed({"selected": false});
             }
             else if (type == "service") {
-                d3.select("#service_" + id).select("circle").classed({"hover": false});
-                d3.selectAll(".link.target-" + id).classed({"hover": false});
+                d3.select("#service_" + id).select("circle").classed({"selected": false});
+                d3.selectAll(".link.target-" + id).classed({"selected": false});
             }
         },
 
