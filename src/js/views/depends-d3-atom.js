@@ -30,7 +30,7 @@ define(function (require) {
         _fetchIcon: function (d) {
             var self = this;
 
-            $.ajax("http://localhost:3200/icon/" + d.get("process").get("cmdline")[0], {
+            $.ajax("http://" + window.location.host + "/icon/" + d.get("process").get("cmdline")[0], {
                 type: "HEAD",
                 success: function (data, status, jqXHR) {
                     console.log("Icon found for " + d.get("pid"));
@@ -47,7 +47,7 @@ define(function (require) {
                             return "translate(-15, -15)";
                         })
                         .attr("xlink:xlink:href", function (d) {
-                            return "http://localhost:3200/icon/" + d.get("process").get("cmdline")[0];
+                            return "http://" + window.location.host + "/icon/" + d.get("process").get("cmdline")[0];
                         });
                 },
                 error: function () {
