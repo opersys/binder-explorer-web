@@ -2,7 +2,7 @@
 
 Go to, https://github.com/opersys/binder-explorer-web/releases, download both *com.opersys.otlauncher.be_0.1.apk* and _otlauncher_. The package include support for both the ARM and 32 bit x86 architectures but be conscious that running Binder Explorer in the ARM emulator will be *very* slow. We will be working on improving Binder Explorer performance later.
 
-## How to try BE
+## How to try Binder Explorer
 
 Install the .apk package on your device.
 
