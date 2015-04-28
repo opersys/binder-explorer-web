@@ -40,6 +40,8 @@ Execute _otlauncher_. Use the _-d_ flag to get more information about the startu
 root@generic_x86:/ # ./otlauncher
 </pre>
 
+The Binder Explorer should then be browsable on http://localhost:3000/index.html if you forwarded ports using _adb forward_ or on your device IP, on port 3000, if you have not.
+
 # Contributors
 
 * François-Denis Gonthier francois-denis.gonthier@opersys.com -- main developer and maintainer
