@@ -7,25 +7,37 @@ Go to, https://github.com/opersys/binder-explorer-web/releases, download both *c
 Install the .apk package on your device.
 
 <pre>
-adb install com.opersys.otlauncher.be_0.1.apk
+$ adb install com.opersys.otlauncher.be_0.1.apk
 </pre>
 
 Copy _otlauncher_ somewhere on your device. _/data/local/tmp_ is a good idea.
 
 <pre>
-adb push otlauncher /data/local/tmp
+$ adb push otlauncher /data/local/tmp
+</pre>
+
+If you are using the emulator, you should forward port 3000 to your hosting computer. It might also be necessary for normal devices if you can't access the device by its IP address.
+
+<pre>
+$ adb forward tcp:3000 tcp:3000
+</pre>
+
+The next steps needs to be executed on the device as the _shell_ user. 
+
+<pre>
+$ adb shell
 </pre>
 
 Make _otlauncher_ executable: 
 
 <pre>
-# chmod 0755 ./otlauncher
+root@generic_x86:/ # chmod 0755 ./otlauncher
 </pre>
 
 Execute _otlauncher_. Use the _-d_ flag to get more information about the startup.
 
 <pre>
-# ./otlauncher
+root@generic_x86:/ # ./otlauncher
 </pre>
 
 # Contributors
