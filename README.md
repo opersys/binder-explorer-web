@@ -28,3 +28,7 @@ Execute _otlauncher_. Use the _-d_ flag to get more information about the startu
 # ./otlauncher
 </pre>
 
+# Contributors
+
+* François-Denis Gonthier francois-denis.gonthier@opersys.com -- main developer and maintainer
+* Karim Yaghmour karim.yaghmour@opersys.com -- ideas and other forms of entertainment
