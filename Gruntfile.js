@@ -20,6 +20,7 @@ var path = require("path");
 var util = require("util");
 var _ = require("underscore");
 var Download = require("download");
+var async = require("async");
 
 module.exports = function (grunt) {
 
@@ -28,7 +29,7 @@ module.exports = function (grunt) {
         copy_config = {},
         prebuilts_config = {},
         exec_config = {},
-        compress_config = {}
+        compress_config = {},
         has_config = false;
 
     if (!fs.existsSync("config.json")) {
@@ -121,7 +122,7 @@ module.exports = function (grunt) {
                 command: function() {
                     return "npm --production --prefix=" + mkdist("/") + " install";
                 }
-            }
+            };
         }
 
         exec_config["dist_md5sum_" + arch] = {
@@ -142,13 +143,15 @@ module.exports = function (grunt) {
         prebuilts_config["dist_" + arch] = _.map(grunt.config("pkg.prebuilts.modules." + arch), function (v) {
             return {
                 url: v,
+                tagDest: mkdist(),
                 dest: mkdist("node_modules")
-            }
+            };
         }).concat(_.map(grunt.config("pkg.prebuilts.misc." + arch), function (v) {
                 return {
                     url: v,
+                    tagDest: mkdist(),
                     dest: mkdist()
-                }
+                };
             }));
 
         grunt.registerTask("dist_" + arch, [
@@ -220,14 +223,34 @@ module.exports = function (grunt) {
         var done = this.async();
         var dl = new Download({ extract: true });
 
-        _.each(data, function (dldata) {
-            grunt.log.writeln("Downloading " + dldata.url);
-            dl.get(dldata.url, dldata.dest)
-        });
+        async.each(data,
+            function (dldata, callback) {
+                var tag = path.join(dldata.tagDest, ".dltag." + path.basename(dldata.url));
 
-        dl.run(function () {
-            done();
-        });
+                fs.exists(tag, function (exists) {
+                    if (!exists) {
+                        fs.writeFile(tag, "", function () {
+                            console.log("TAG is: " + tag);
+                            grunt.log.writeln("Downloading " + dldata.url);
+                            dl.get(dldata.url, dldata.dest);
+                            callback();
+                        });
+                    } else {
+                        grunt.log.writeln("Not downloading " + dldata.url + ": already done.");
+                            callback();
+                    }
+                });
+            },
+            function () {
+                if (dl.get()) {
+                    dl.run(function (err, files) {
+                        if (err) throw err;
+                        done();
+                    });
+                }
+                else  done();
+            }
+        );
     });
 
     grunt.registerTask("dev_bin", "Pick the right binaries for development", function (arch) {
