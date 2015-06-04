@@ -31,10 +31,9 @@ define(function (require) {
         self._count = 0;
 
         self.fetch = function (opts) {
-            var self = this;
-
-            if (!opts.item)
+            if (!opts.item) {
                 throw "missing item to fetch";
+            }
 
             queue.add(opts);
             self._count++;

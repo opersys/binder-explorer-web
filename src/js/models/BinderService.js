@@ -16,10 +16,11 @@
 
 define(function (require) {
     var Backbone = require("backbone");
-    var modelLoader = require("modelLoader");
 
     return Backbone.Model.extend({
-        idAttribute: "name"
+        idAttribute: "name",
+
+        initialize: function () {}
     });
 });
 

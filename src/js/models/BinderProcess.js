@@ -17,6 +17,7 @@
 define(function (require) {
     var Backbone = require("backbone");
     var Process = require("models/Process");
+    var _ = require("underscore");
 
     return Backbone.Model.extend({
         idAttribute: "pid",
@@ -32,8 +33,9 @@ define(function (require) {
             var self = this, serviceRefs = [], i;
 
             _.each(self.get("refs"), function (ref) {
-                if ((i = self.collection.getServiceByNode(ref.node)))
+                if ((i = self.collection.getServiceByNode(ref.node))) {
                     serviceRefs.push(i);
+                }
             });
 
             return serviceRefs;

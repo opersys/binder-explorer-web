@@ -65,48 +65,17 @@ define(function (require) {
                 binderProcesses: self._binderProcesses
             });
 
-            self._modelLoader = new ModelLoader({
-                queueDone: function () {
-                    self._dependsView.renderGraph();
+            self._binderServices.fetch({
+                success: function () {
+
                 }
             });
 
-            self._modelLoader.fetch({
-                item: self._binderServices,
+            self._binderProcesses.fetch({
+                success: function () {
 
-                itemDone: function (modelLoader) {
-                    self._binderServices.each(function (binderService) {
-                        modelLoader.fetch({
-                            item: binderService
-                        });
-                    });
                 }
             });
-
-            self._modelLoader.fetch({
-                item: self._binderProcesses,
-                itemDone: function (modelLoader) {
-                    self._binderProcesses.each(function (binderProcess) {
-                        modelLoader.fetch({
-                            item: binderProcess,
-
-                            itemDone: function () {
-
-                            }
-                        });
-
-                        modelLoader.fetch({
-                            item: binderProcess.get("process"),
-
-                            itemDone: function () {
-                            }
-                        });
-
-                    });
-                }
-            });
-
-            self._modelLoader.start();
 
             self.$el.w2layout({
                 name: self.getLayoutName(),
@@ -123,8 +92,9 @@ define(function (require) {
                 ],
                 onResize: function (ev) {
                     ev.onComplete = function () {
-                        if (self._dependsView)
+                        if (self._dependsView) {
                             self._dependsView.resize();
+                        }
                     };
                 }
             });
