@@ -18,6 +18,7 @@ var _ = require("underscore");
 
 var Binder = require("jsbinder");
 var BinderUtils = require("./binderUtils.js");
+var debug = require("debug")("be:utils:child");
 
 var sm = new Binder.ServiceManager();
 var knownNodes = [];
@@ -28,9 +29,11 @@ BinderUtils.readBinderStateFile(
         var currentNodes = [], newNode, iface;
         var procData = stateData[process.pid];
 
-        for (var ref in procData.refs)
-            if (procData.refs[ref].node != 1)
+        for (var ref in procData.refs) {
+            if (procData.refs[ref].node != 1) {
                 currentNodes.push(procData.refs[ref].node);
+            }
+        }
 
         newNode = _.difference(currentNodes, knownNodes);
 

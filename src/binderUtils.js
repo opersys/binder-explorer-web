@@ -21,6 +21,7 @@ var fs = require("fs");
 var path = require("path");
 var cp = require("child_process");
 var _ = require("underscore");
+var debug = require("debug")("be:utils");
 
 var requests = {};
 var sm = new Binder.ServiceManager();
@@ -77,7 +78,7 @@ var readBinderStateFile = function (successCallback, errorCallback) {
 
         for (var j = 0; j < dataLines.length; j++) {
             var dataLine = _.filter(dataLines[j].trim().split(" "), function (item) {
-                return item != "";
+                return item !== "";
             });
             var dataLineType = dataLine.shift();
 
@@ -90,7 +91,7 @@ var readBinderStateFile = function (successCallback, errorCallback) {
                 stateData[currentProc].refs = [];
                 stateData[currentProc].nodes = [];
             }
-            else if (currentProc && dataLineType == "thread") {
+            else if (currentProc && dataLineType === "thread") {
                 var threadInfo = {};
 
                 threadInfo.id = dataLine.shift().replace(":", "");
@@ -100,7 +101,7 @@ var readBinderStateFile = function (successCallback, errorCallback) {
 
                 stateData[currentProc].threads.push(threadInfo);
             }
-            else if (currentProc && dataLineType == "ref") {
+            else if (currentProc && dataLineType === "ref") {
                 var refInfo = {};
 
                 refInfo.id = dataLine.shift().replace(":", "");
@@ -118,7 +119,7 @@ var readBinderStateFile = function (successCallback, errorCallback) {
 
                 stateData[currentProc].refs.push(refInfo);
 
-            } else if (currentProc && dataLineType == "node") {
+            } else if (currentProc && dataLineType === "node") {
                 var nodeInfo = {};
 
                 nodeInfo.id = dataLine.shift().replace(":", "");

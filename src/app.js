@@ -14,19 +14,25 @@
  * limitations under the License.
  */
 
+"use strict";
+
+var _ = require("underscore");
 var async = require("async");
 var express = require("express");
 var exStatic = require("serve-static");
 var path = require("path");
 var http = require("http");
-var _ = require("underscore");
 var pslook = require("pslook");
 var Binder = require("jsbinder");
 var fs = require("fs");
 var cache = require("js-cache");
+var debug = require("debug")("be");
+var SocketIO = require("socket.io");
 
 // Local modules
 var BinderUtils = require("./binderUtils.js");
+var BinderWatcher = require("./binderWatcher.js");
+var DataFeeder = require("./dataFeeder.js");
 
 // Express application
 var app = express();
@@ -241,8 +247,18 @@ app.get("/binder/services/:serviceName", function (req, res) {
 
 app.get("/binder/services", function (req, res) {
     res.json(_.map(serviceManager.list(), function (serviceName) {
-        return { name: serviceName }
+        return { name: serviceName };
     }));
 });
 
+var io = new SocketIO({ transports: ["websocket"] });
+var binderWatcher = new BinderWatcher();
+
+io.on("connection", function (sock) {
+    sock.dataFeeder = new DataFeeder(binderWatcher, sock);
+    sock.dataFeeder.start();
+});
+
+io.listen(server);
+binderWatcher.start();
 server.listen(app.get("port"), function() {});

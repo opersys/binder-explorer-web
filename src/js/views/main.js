@@ -18,11 +18,11 @@ define(function (require) {
     var Backbone = require("backbone");
     var DependsView = require("views/depends-d3-atom");
     var ServicesView = require("views/services");
-    //var ServicePreview = require("views/servicePreview");
     var $ = require("jquery");
     var w2ui = require("w2ui");
-    var ModelLoader = require("modelLoader");
     var Operation = require("models/Operation");
+    var io = require("socketio");
+    var WSHandler = require("wshandler");
 
     return Backbone.View.extend({
 
@@ -65,17 +65,8 @@ define(function (require) {
                 binderProcesses: self._binderProcesses
             });
 
-            self._binderServices.fetch({
-                success: function () {
-
-                }
-            });
-
-            self._binderProcesses.fetch({
-                success: function () {
-
-                }
-            });
+            self._sock = io(location.host + "/");
+            self._wsHandler = new WSHandler(self._sock, self._binderServices, self._binderProcesses);
 
             self.$el.w2layout({
                 name: self.getLayoutName(),

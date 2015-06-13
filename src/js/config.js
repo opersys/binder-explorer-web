@@ -23,6 +23,9 @@ requirejs.config({
         "jquery-timer/jquery.timer": {
             deps: ["jquery"]
         },
+        "socketio": {
+            exports: "io"
+        },
         jquery: {
             exports: "$"
         },
@@ -41,7 +44,8 @@ requirejs.config({
         underscore: "underscore/underscore",
         backbone: "backbone/backbone",
         jquery: "jquery/jquery",
-        d3: "d3/d3"
+        d3: "d3/d3",
+        socketio: "../socket.io/socket.io"
     },
     packages: []
 });

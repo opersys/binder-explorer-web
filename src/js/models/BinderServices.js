@@ -31,14 +31,6 @@ define(function (require) {
             self.on("change:node", function (m) {
                 self._serviceByNodeId[m.get("node")] = m;
             });
-
-            // The model is only ever partially loaded when its added to the
-            // collection so this makes the model load itself from the backend.
-            self.on("add", function (m) {
-                if (_.keys(m.attributes).length === 1) {
-                    m.fetch();
-                }
-            });
         },
 
         getServiceByNode: function (n) {

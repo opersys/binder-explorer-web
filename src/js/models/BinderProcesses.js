@@ -30,16 +30,6 @@ define(function (require) {
             self.on("change:node", function (m) {
                 self._serviceByNodeId[m.get("node")] = m;
             });
-
-            self.on("add", function (binderProcess) {
-                binderProcess.fetch({
-                    success: function () {
-                        if (binderProcess.get("process")) {
-                            binderProcess.get("process").fetch();
-                        }
-                    }
-                });
-            });
         },
 
         getServiceByNode: function (n) {
