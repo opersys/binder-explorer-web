@@ -88,6 +88,9 @@ define(function (require) {
                     return d.get("process").get("cmdline")[0];
                 }
             );
+
+            self._circlePositions = [];
+            self._circlePositionIndex = 0;
         },
 
         _onItemOut: function (target, data) {
@@ -152,9 +155,18 @@ define(function (require) {
          */
         _onNewBinderProcess: function () {
             var self = this;
-            var processNodes, newProcessNodes, newProcessNodeG;
+            var processNodes, newProcessNodes, newProcessNodeG, goneProcessNodes;
 
             processNodes  = self._nodeBox.selectAll(".node.process").data(self._binderProcesses.models);
+
+            // Remove the nodes that are gone.
+            goneProcessNodes = processNodes.exit();
+
+            goneProcessNodes.each(function (d) {
+                d3.select("#pid_" + d.get("pid")).remove();
+            });
+
+            // Add new process nodes.
             newProcessNodes = processNodes.enter();
 
             newProcessNodeG = newProcessNodes.append("g")
@@ -256,19 +268,44 @@ define(function (require) {
             var self = this;
             var serviceNodes, newServiceNodes, newServiceNodeG;
 
-            self._circlePositions = self._prepareCircle(self._binderServices.models.length);
+            if (self._binderServices.length > self._circlePositions.length) {
+                self._circlePositions = self._prepareCircle(self._binderServices.models.length);
+            }
 
             serviceNodes  = self._nodeBox.selectAll(".node.service").data(self._binderServices.models);
-            newServiceNodes = serviceNodes.enter();
 
+            // Adjust the position of the currently placed services
+            serviceNodes.attr("transform", function (d) {
+                d.x = self._circlePositions[d.i].x;
+                d.y = self._circlePositions[d.i].y;
+                d.t = self._circlePositions[d.i].t;
+                d.a = self._circlePositions[d.i].a;
+
+                return "translate(" + d.x + ","  + d.y +")";
+            })
+                .select("text")
+                .attr("text-anchor", function (d) {
+                    if (d.t === "left") { return "end"; }
+                    if (d.t === "right") { return "start"; }
+                })
+                .attr("transform", function (d) {
+                    if (d.t === "left") {
+                        return "translate(-" + (d.radius + 5) + ", " + d.radius + ")";
+                    }
+                    if (d.t === "right") {
+                        return "translate(" + (d.radius + 5) + ", " + d.radius + ")";
+                    }
+                });
+
+            // Create a new service, adjust its position.
+            newServiceNodes = serviceNodes.enter();
             newServiceNodeG = newServiceNodes.append("g")
                 .each(function (d) {
-                    var pos = self._circlePositions.pop();
-
-                    d.x = pos.x;
-                    d.y = pos.y;
-                    d.t = pos.t;
-                    d.a = pos.a;
+                    d.i = self._circlePositionIndex++;
+                    d.x = self._circlePositions[d.i].x;
+                    d.y = self._circlePositions[d.i].y;
+                    d.t = self._circlePositions[d.i].t;
+                    d.a = self._circlePositions[d.i].a;
                     d.radius = 5;
                 })
                 .attr("transform", function (d) {
@@ -374,6 +411,10 @@ define(function (require) {
             });
 
             self._binderProcesses.on("add", function () {
+                self._onNewBinderProcess.apply(self, arguments);
+            });
+
+            self._binderProcesses.on("remove", function () {
                 self._onNewBinderProcess.apply(self, arguments);
             });
         }

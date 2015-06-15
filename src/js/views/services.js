@@ -89,6 +89,16 @@ define(function (require) {
             self._refreshSidebar();
         },
 
+        _onProcessRemoved: function (binderProcess) {
+            var self = this;
+
+            self._processes = _.reject(self._processes, function (binderProcessPid) {
+                return binderProcessPid === binderProcess.get("pid");
+            });
+
+            self._refreshSidebar();
+        },
+
         /*
          * When processs are added to the main collection, they only get their PID.
          * We have to subscribe to their change to have more details such as the
@@ -173,11 +183,12 @@ define(function (require) {
                 self._onServiceNodeAdded.apply(self, arguments);
             });
 
-            self._binderServices.on("remove", function (model, coll, opts) {
-            });
-
             self._binderProcesses.on("add", function () {
                 self._onProcessAdded.apply(self, arguments);
+            });
+
+            self._binderProcesses.on("remove", function () {
+                self._onProcessRemoved.apply(self, arguments);
             });
         }
     });
