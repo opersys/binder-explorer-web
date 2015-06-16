@@ -65,7 +65,7 @@ define(function (require) {
                 binderProcesses: self._binderProcesses
             });
 
-            self._sock = io(location.host + "/");
+            self._sock = io(location.host + "/", { transports: ["websocket"] });
             self._wsHandler = new WSHandler(self._sock, self._binderServices, self._binderProcesses);
 
             self.$el.w2layout({
