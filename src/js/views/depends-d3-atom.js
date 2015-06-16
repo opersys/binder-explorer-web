@@ -135,7 +135,7 @@ define(function (require) {
         },
 
         /*
-         *
+         * Unselect a node on the screen.
          */
         unselect: function (type, id) {
             if (type === "process") {
@@ -163,7 +163,13 @@ define(function (require) {
             goneProcessNodes = processNodes.exit();
 
             goneProcessNodes.each(function (d) {
-                d3.select("#pid_" + d.get("pid")).remove();
+                d3.select("#pid_" + d.get("pid"))
+                    .transition()
+                    .duration(1000)
+                    .style("opacity", 0)
+                    .each("end", function (d) {
+                        d3.select("#pid_" + d.get("pid")).remove();
+                    });
             });
 
             // Add new process nodes.
