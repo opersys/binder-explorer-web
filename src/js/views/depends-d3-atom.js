@@ -153,7 +153,7 @@ define(function (require) {
         /**
          * Called when there is a new process added in the collection.
          */
-        _onNewBinderProcess: function () {
+        _onNewBinderProcess: function (binderProcess) {
             var self = this;
             var processNodes, newProcessNodes, newProcessNodeG, goneProcessNodes;
 
@@ -214,53 +214,51 @@ define(function (require) {
                     });
                 });
 
-            self._binderProcesses.on("change:refs", function (binderProcess) {
-                var srefs = binderProcess.getServiceRefs();
+            var srefs = binderProcess.getServiceRefs();
 
-                // This elaborate contraption is meant to avoid adding the same links several
-                // times to the self._links array.
+            // This elaborate contraption is meant to avoid adding the same links several
+            // times to the self._links array.
 
-                if (!self._linksByProcess[binderProcess]) {
-                    self._linksByProcess[binderProcess.get("pid")] = {};
+            if (!self._linksByProcess[binderProcess.get("pid")]) {
+                self._linksByProcess[binderProcess.get("pid")] = {};
+            }
+
+            srefs.forEach(function (binderService) {
+                if (!self._linksByProcess[binderProcess.get("pid")][binderService.get("name")]) {
+                    self._linksByProcess[binderProcess.get("pid")][binderService.get("name")] = false;
                 }
+            });
 
-                srefs.forEach(function (binderService) {
-                    if (!self._linksByProcess[binderProcess.get("pid")][binderService.get("name")]) {
-                        self._linksByProcess[binderProcess.get("pid")][binderService.get("name")] = false;
+            _.each(_.keys(self._linksByProcess), function (binderProcessPid) {
+                var binderProcess = self._binderProcesses.get(binderProcessPid);
+
+                _.each(_.keys(self._linksByProcess[binderProcessPid]), function (binderServiceName) {
+                    var binderService = self._binderServices.get(binderServiceName);
+
+                    if (!self._linksByProcess[binderProcessPid][binderServiceName]) {
+                        self._links.push({
+                            source: binderProcess,
+                            target: binderService
+                        });
+
+                        self._linksByProcess[binderProcessPid][binderServiceName] = true;
                     }
                 });
-
-                _.each(_.keys(self._linksByProcess), function (binderProcessPid) {
-                    var binderProcess = self._binderProcesses.get(binderProcessPid);
-
-                    _.each(_.keys(self._linksByProcess[binderProcessPid]), function (binderServiceName) {
-                        var binderService = self._binderServices.get(binderServiceName);
-
-                        if (!self._linksByProcess[binderProcessPid][binderServiceName]) {
-                            self._links.push({
-                                source: binderProcess,
-                                target: binderService
-                            });
-
-                            self._linksByProcess[binderProcessPid][binderServiceName] = true;
-                        }
-                    });
-                });
-
-                self._linkBox.selectAll(".link")
-                    .data(self._links, function (d) {
-                        return "source-" + d.source.id + " target-" + d.target.id;
-                    })
-                    .enter()
-                    .append("line")
-                    .attr("class", function(d) {
-                        return "link source-" + d.source.id + " target-" + d.target.id;
-                    })
-                    .attr("x1", function (l) { return l.source.x; })
-                    .attr("y1", function (l) { return l.source.y; })
-                    .attr("x2", function (l) { return l.target.x; })
-                    .attr("y2", function (l) { return l.target.y; });
             });
+
+            self._linkBox.selectAll(".link")
+                .data(self._links, function (d) {
+                    return "source-" + d.source.id + " target-" + d.target.id;
+                })
+                .enter()
+                .append("line")
+                .attr("class", function(d) {
+                    return "link source-" + d.source.id + " target-" + d.target.id;
+                })
+                .attr("x1", function (l) { return l.source.x; })
+                .attr("y1", function (l) { return l.source.y; })
+                .attr("x2", function (l) { return l.target.x; })
+                .attr("y2", function (l) { return l.target.y; });
 
             self._force
                 .nodes(self._binderProcesses.models)

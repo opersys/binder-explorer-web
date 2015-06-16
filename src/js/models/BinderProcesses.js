@@ -26,10 +26,6 @@ define(function (require) {
             var self = this;
 
             self._binderServices = opts.binderServices;
-
-            self.on("change:node", function (m) {
-                self._serviceByNodeId[m.get("node")] = m;
-            });
         },
 
         getServiceByNode: function (n) {

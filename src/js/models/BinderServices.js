@@ -28,7 +28,7 @@ define(function (require) {
         initialize: function () {
             var self = this;
 
-            self.on("change:node", function (m) {
+            self.on("add", function (m) {
                 self._serviceByNodeId[m.get("node")] = m;
             });
         },
