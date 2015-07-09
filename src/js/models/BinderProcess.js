@@ -27,6 +27,7 @@ define(function (require) {
 
             // Initialize a new Process object that we can fetch.
             self.set("process", new Process({ pid: self.get("pid") }));
+            self.get("process").fetch();
         },
 
         getServiceRefs: function () {

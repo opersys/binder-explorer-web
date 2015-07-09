@@ -191,6 +191,10 @@ define(function (require) {
                 .each(function (d) {
                     d.x = (2 * (Math.random() - 0.5)) * self._radius + self._centerX;
                     d.y = (2 * (Math.random() - 0.5)) * self._radius + self._centerY;
+                    d.radius = 5;
+                })
+                .attr("transform", function (d) {
+                    return "translate(" + d.radius + ", " + d.radius + ")";
                 })
                 .text(function (d) {
                     return d.get("pid");
@@ -206,7 +210,7 @@ define(function (require) {
                     return d.radius;
                 })
                 .each(function (newBinderProcess) {
-                    newBinderProcess.get("process").on("sync", function () {
+                    newBinderProcess.get("process").on("change", function () {
                         // Schedule a timer to fetch the icon for this process.
                         setTimeout(function () {
                             self._fetchIcon(newBinderProcess);
@@ -386,7 +390,7 @@ define(function (require) {
 
             w = $(self.box).width();
             h = $(self.box).height();
-            r = $(self.box).width() * 0.35;
+            r = $(self.box).width() * 0.30;
 
             self._centerX = w / 2;
             self._centerY = h / 2;
