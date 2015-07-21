@@ -355,29 +355,65 @@ define(function (require) {
         },
 
         /**
-         * Precalculate the position on the circle.
+         * Precalculate the positions available for service nodes.
+         *
+         * ... leave this alone!
          */
         _prepareCircle: function (n) {
             var self = this;
-            var cPos = [], pos;
-            var cAngle = 0;
-            var incAngle = ((2 * Math.PI) - (Math.PI / 2)) / n;
+            var w = $(self.box).width();
+            var h = $(self.box).height();
+            var xmargin = 160;
+            var ymargin = 50;
+            var svcPerSide;
 
-            for (var i = 0; i < n; i++) {
-                pos = {
-                    x: self._radius * Math.cos(cAngle) + self._centerX,
-                    y: self._radius * Math.sin(cAngle) + self._centerY,
-                    t: cAngle > (0.625 * Math.PI) && cAngle < (1.375 * Math.PI) ? "left" : "right",
-                    a: cAngle
-                };
+            self.s1 = {
+                x1: w / 3, y1: ymargin,
+                x2: xmargin, y2: h / 3,
+                g: function (y) {
+                    var n = (xmargin - w / 3) / (h / 3 - ymargin);
+                    var c = -1 * n * h / 3 + xmargin;
+                    return n * y + c;
+                }
+            };
+            self.s2 = {
+                x1: xmargin, y1: h / 3,
+                x2: xmargin, y2: 2 / 3 * h
+            };
+            self.s3 = {
+                x1: xmargin, y1: 2 / 3 * h,
+                x2: w / 3, y2: h - ymargin,
+                g: function (y) {
+                    var n = (w / 3 - xmargin) / ((h - ymargin) - 2 / 3 * h);
+                    var c = -1 * n * (h - ymargin) + w / 3;
+                    return n * y + c;
+                }
+            };
 
-                cPos.push(pos);
+            var segSz = 2 * (self.s1.y2 - self.s1.y1) + (self.s2.y2 - self.s2.y1);
+            var cPos = [];
 
-                cAngle += incAngle;
+            svcPerSide = Math.ceil(n / 2 + 1);
 
-                if ((cAngle >= (0.375 * Math.PI) && cAngle <= (0.625 * Math.PI)) ||
-                    (cAngle > (1.375 * Math.PI) && cAngle <= (1.625 * Math.PI)))
-                    cAngle += (Math.PI * 0.25);
+            for (var i = 0; i < Math.ceil(n / 2 + 1); i++) {
+                var xleft, yleft = (segSz / svcPerSide * i) + ymargin;
+                var xright, yright = yleft;
+
+                if (yleft < self.s1.y2) {
+                    xleft = self.s1.g(yleft);
+                } else if (yleft > self.s3.y1) {
+                    xleft = self.s3.g(yleft);
+                } else {
+                    xleft = self.s2.x1;
+                }
+                xright = w - xleft;
+
+                cPos.push({
+                    x: xleft, y: yleft, t: "left"
+                });
+                cPos.push({
+                    x: xright, y: yright, t: "right"
+                });
             }
 
             return cPos;
