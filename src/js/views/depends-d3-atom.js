@@ -148,7 +148,9 @@ define(function (require) {
             }
         },
 
-        resize: function () {},
+        resize: function () {
+
+        },
 
         /**
          * Called when there is a new process added in the collection.

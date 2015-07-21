@@ -89,7 +89,7 @@ define(function (require) {
             });
 
             w2ui[self._toolbarName].on("click", function (event) {
-                self._onToolbarClick.apply(self, [event])
+                self._onToolbarClick.apply(self, [event]);
             });
 
             w2ui[self._toolbarName].on("render", function (event) {

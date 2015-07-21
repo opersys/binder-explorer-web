@@ -36,14 +36,12 @@ define(function (require) {
             var self = this;
 
             self._dependsView.select(type, id);
-            self._serviceView.select(type, id);
         },
 
         _onServiceUnselected: function (type, id) {
             var self = this;
 
             self._dependsView.unselect(type, id);
-            self._serviceView.unselect(type, id);
         },
 
         initialize: function (opts) {
@@ -60,11 +58,6 @@ define(function (require) {
                 functions: self._functions
             });
 
-            self._serviceView = new ServicesView({
-                binderServices: self._binderServices,
-                binderProcesses: self._binderProcesses
-            });
-
             self._sock = io(location.host + "/", { transports: ["websocket"] });
             self._wsHandler = new WSHandler(self._sock, self._binderServices, self._binderProcesses);
 
@@ -73,12 +66,8 @@ define(function (require) {
                 panels: [
                     {
                         type: "main",
-                        content: self._dependsView
-                    },
-                    {
-                        type: "left",
-                        content: self._serviceView,
-                        size: 200
+                        content: self._dependsView,
+                        overflow: "hidden"
                     }
                 ],
                 onResize: function (ev) {
@@ -88,14 +77,6 @@ define(function (require) {
                         }
                     };
                 }
-            });
-
-            self._serviceView.on("services_view:selected", function () {
-                self._onServiceSelected.apply(self, arguments);
-            });
-
-            self._serviceView.on("services_view:unselected", function () {
-                self._onServiceUnselected.apply(self, arguments);
             });
 
             self._dependsView.on("depends_view:selected", function () {
