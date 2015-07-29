@@ -28,6 +28,7 @@ var fs = require("fs");
 var cache = require("js-cache");
 var debug = require("debug")("be");
 var SocketIO = require("socket.io");
+var domain = require("domain");
 
 // Local modules
 var BinderUtils = require("./binderUtils.js");
@@ -74,8 +75,14 @@ function fetchIcon (pkg, options) {
     // Check in the memory cache.
     if (!(imgBuf = imgCache.get(pkg))) {
         // Stream a request.
+        var opts = {
+            hostname: "localhost",
+            port: "3001",
+            path: "/icon/" + pkg,
+            method: "GET"
+        };
 
-        http.get("http://localhost:3001/icon/" + pkg, function (r) {
+        var req = http.request(options, function (r) {
             var newImgBuf, sz, idx = 0;
 
             if (r.statusCode === 200) {
@@ -89,6 +96,7 @@ function fetchIcon (pkg, options) {
 
                 r.on("end", function () {
                     imgCache.set(pkg, newImgBuf, 86400000);
+                    r.end();
                     if (options.success) options.success(newImgBuf);
                 });
             }
@@ -108,7 +116,16 @@ function fetchIcon (pkg, options) {
                 } else {
                     if (options.error) options.error();
                 }
-            });
+            }
+        );
+
+        req.setTimeout(500,
+            function () {
+                if (options.error) options.error();
+            }
+        );
+
+        req.end();
     }
     else {
         if (options.success) options.success(imgBuf);
@@ -149,39 +166,61 @@ app.get("/icon/:app", function (req, res) {
 
 // Routes.
 app.get("/proc", function (req, res) {
-    pslook.list(function (err, processes) {
-        var procsData = [];
+    var pslook_domain = domain.create();
 
-        if (err)
-            res.status(404).end();
+    pslook_domain.on("error", function (err) {
+        debug("Error in pslook: " + err);
+        res.status(404).end();
+    });
 
-        async.each(processes,
-            function (item, callback) {
-                pslook.read(item.pid, function (err, procData) {
-                    if (err) {
-                        callback(err);
-                    } else {
-                        procsData.push(procData);
-                        callback();
+    pslook_domain.run(function () {
+        pslook.list(function (err, processes) {
+            var procsData = [];
+
+            if (err)
+                res.status(404).end();
+
+            async.each(processes,
+                function (item, callback) {
+                    try {
+                        pslook.read(item.pid, function (err, procData) {
+                            if (err) {
+                                callback(err);
+                            } else {
+                                procsData.push(procData);
+                                callback();
+                            }
+                        }, {fields: pslook.ALL});
+                    } catch (ex) {
+                        debug("Failed to read process " + item.pid);
+                        res.status(404).end();
                     }
-                }, {fields: pslook.ALL});
-            },
-            function () {
-                res.json(procsData).end();
-            }
-        );
-
-    }, {fields: pslook.ALL});
+                },
+                function () {
+                    res.json(procsData).end();
+                }
+            );
+        }, {fields: pslook.ALL});
+    });
 });
 
 app.get("/proc/:pid", function (req, res) {
-    pslook.read(req.params.pid, function (err, process) {
-        if (err) {
-            res.status(404).end();
-        } else {
-            res.json(process).end();
-        }
-    }, {fields: pslook.ALL});
+    var pslook_domain = domain.create();
+
+    pslook_domain.on("error", function (err) {
+        debug("Error in pslook: " + err);
+        res.status(404).end();
+    });
+
+    pslook_domain.run(function () {
+        pslook.read(req.params.pid, function (err, process) {
+            if (err) {
+                res.status(404).end();
+            } else {
+                res.json(process).end();
+            }
+        }, {fields: pslook.ALL});
+    });
 });
 
 app.get("/binder/procs", function (req, res) {
@@ -257,6 +296,11 @@ var binderWatcher = new BinderWatcher();
 io.on("connection", function (sock) {
     sock.dataFeeder = new DataFeeder(binderWatcher, sock);
     sock.dataFeeder.start();
+
+    sock.on("disconnect", function () {
+        sock.dataFeeder.stop();
+        sock.dataFeeder = null;
+    });
 });
 
 io.listen(server);

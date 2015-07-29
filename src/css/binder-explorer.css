@@ -18,6 +18,16 @@ body {
     margin: 0 0 0 0
 }
 
+cicle.service {
+    fill: blue;
+}
+
+circle.service_orbit {
+    stroke: LightSkyBlue;
+    stroke-width: 1;
+    fill: none;
+}
+
 circle.node {
     fill: black;
 }

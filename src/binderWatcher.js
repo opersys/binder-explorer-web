@@ -23,20 +23,26 @@ var fs = require("fs");
 var Binder = require("jsbinder");
 var _ = require("underscore");
 var debug = require("debug")("be:watcher");
+var cp = require("child_process");
 
 // Local modules
 var BinderUtils = require("./binderUtils.js");
+var ServiceListParser = require("./ServiceListParser.js");
 
 var BinderWatcher = function () {
     this._serviceManager = new Binder.ServiceManager();
+    this._serviceListParser = new ServiceListParser();
+
     this._binderServices = {};
     this._binderProcesses = {};
+    this._userProcesses = {};
 };
 
 util.inherits(BinderWatcher, events.EventEmitter);
 
 BinderWatcher.prototype.getProcesses = function () { return this._binderProcesses; };
 BinderWatcher.prototype.getServices = function () { return this._binderServices; };
+BinderWatcher.prototype.getUserProcesses = function () { return this._userProcesses; };
 
 BinderWatcher.prototype.start = function() {
     var self = this;
@@ -45,28 +51,85 @@ BinderWatcher.prototype.start = function() {
 
     setTimeout(function () { self._scanBinderServices(); }, 500);
     setTimeout(function () { self._scanBinderProcesses(); }, 500);
+    setTimeout(function () { self._scanProcessServices(); }, 1000);
+};
+
+BinderWatcher.prototype._scanProcessServices = function () {
+    var self = this;
+
+    cp.execFile("/system/bin/dumpsys", ["activity", "services"], function (error, stdout, stderr) {
+        self._serviceListParser.parseOutput(stdout);
+
+        _.map(_.values(self._binderProcesses), function (bproc) {
+            var svcs = self._serviceListParser.getServicesForPid(bproc.pid);
+
+            if (!self._userProcesses[bproc.pid]) {
+                self._userProcesses[bproc.pid] = {
+                    services: [],
+                    pid: bproc.pid
+                };
+            }
+
+            if (svcs) {
+                svcs.forEach(function (svc) {
+                    if (!_.some(self._userProcesses[svc.pid].services, function (bsvc) {
+                            return bsvc.intent === svc.intent;
+                        })) {
+                        self._userProcesses[svc.pid].services.push(svc);
+                        self._userProcesses[svc.pid].pid = svc.pid;
+
+                        self.emit("onProcessServiceAdded", svc);
+                    }
+                });
+            }
+
+            if (svcs.length < self._userProcesses[bproc.pid].services.length) {
+                self._userProcesses[bproc.pid].services = _.filter(self._userProcesses[bproc.pid].services,
+                    function (bsvc) {
+                        if (_.some(svcs, function (s) {
+                                return s.intent === bsvc.intent;
+                            })) {
+                            self.emit("onProcessServiceRemoved", bsvc);
+                            return true;
+                        }
+
+                        return false;
+                    }
+                );
+            }
+        });
+
+        setTimeout(function () {
+            self._scanProcessServices();
+        }, 1000);
+    });
 };
 
 BinderWatcher.prototype._scanBinderServices = function () {
     var self = this, diff, newlist, oldlist;
 
     newlist = self._serviceManager.list();
-    oldlist = _.keys(self._binderService);
+    oldlist = _.keys(self._binderServices);
 
     diff = _.difference(newlist, oldlist);
 
-    async.each(diff, function (added, callback) {
-        self._readBinderServiceData(added,
-            function (service) {
-                self.emit("onServiceData", service);
-                callback();
-            },
-            function (err) {
-                // TODO: Do something.
-                callback();
-            }
-        );
-    });
+    self._preloadBinderServiceData(
+        function (binderProcs, binderProcsByNode) {
+
+            async.eachLimit(diff, 10, function (added, callback) {
+                self._readBinderServiceData(added, binderProcs, binderProcsByNode,
+                    function (service) {
+                        self.emit("onServiceData", service);
+                        callback();
+                    },
+                    function (err) {
+                        // TODO: Do something.
+                        callback();
+                    }
+                );
+            });
+        }
+    );
 };
 
 BinderWatcher.prototype._scanBinderProcesses = function () {
@@ -79,6 +142,13 @@ BinderWatcher.prototype._scanBinderProcesses = function () {
 
         addedlist = _.difference(newlist, oldlist);
         removedlist = _.difference(oldlist, newlist);
+
+        if (addedlist.length > 0) {
+            debug("Added list: " + util.inspect(addedlist));
+        }
+        if (removedlist.length > 0) {
+            debug("Removed list: " + util.inspect(removedlist));
+        }
 
         if (addedlist.length > 0 || removedlist.length > 0) {
             debug("Scanning binder processes: " + addedlist.length + " added, " + removedlist.length + " removed");
@@ -94,7 +164,8 @@ BinderWatcher.prototype._scanBinderProcesses = function () {
                                 self.emit("onProcessAdded", process);
                                 eachCallback();
                             },
-                            function () {
+                            function (err) {
+                                debug("Error reading process data for " + added + ": " + err);
                                 eachCallback();
                             });
                     },
@@ -136,6 +207,9 @@ BinderWatcher.prototype._readBinderProcessData = function (binderProcId, success
                 self._binderProcesses[binderProcId] = binderProcs[binderProcId];
                 successCallback(self._binderProcesses[binderProcId]);
             }
+            else {
+                if (errorCallback) errorCallback("Unknown Binder process");
+            }
         },
         function (err) {
             if (errorCallback) errorCallback(err);
@@ -143,46 +217,48 @@ BinderWatcher.prototype._readBinderProcessData = function (binderProcId, success
     );
 };
 
-BinderWatcher.prototype._readBinderServiceData = function (serviceName, successCallback, errorCallback) {
+BinderWatcher.prototype._preloadBinderServiceData = function (preloadCallback) {
+    BinderUtils.readBinderStateFile(
+
+        // Success.
+        function (binderProcs) {
+            var binderProcsByNode = {};
+
+            debug("Preloaded services data");
+
+            _.each(_.keys(binderProcs), function (binderPid) {
+                _.each(binderProcs[binderPid].nodes, function (nodeData) {
+                    binderProcsByNode[nodeData.id] = {};
+                    binderProcsByNode[nodeData.id] = binderProcs[binderPid];
+                    binderProcsByNode[nodeData.id].node = nodeData.id;
+                    binderProcsByNode[nodeData.id].pid = binderPid;
+                });
+            });
+
+            preloadCallback(binderProcs, binderProcsByNode);
+        }
+    );
+};
+
+BinderWatcher.prototype._readBinderServiceData = function (serviceName, binderProcs, binderProcsByNode,
+                                                           successCallback, errorCallback) {
     var self = this;
 
-    debug("Reading service data for: " + serviceName);
-
     try {
-        // Make a catalog of node IDs to PID because findServiceNodeId doesn't provide
-        // us with the PID.
-        BinderUtils.readBinderStateFile(
-            function (binderProcs) {
-                var binderProcsByNode = {};
+        BinderUtils.findServiceNodeId(serviceName, function (node, iface) {
+            self._binderServices[serviceName] = {
+                name: serviceName,
+                iface: iface,
+                node: node,
+                pid: binderProcsByNode[node].pid
+            };
 
-                _.each(_.keys(binderProcs), function (binderPid) {
-                    _.each(binderProcs[binderPid].nodes, function (nodeData) {
-                        binderProcsByNode[nodeData.id] = {};
-                        binderProcsByNode[nodeData.id] = binderProcs[binderPid];
-                        binderProcsByNode[nodeData.id].node = nodeData.id;
-                        binderProcsByNode[nodeData.id].pid = binderPid;
-                    });
-                });
-
-                BinderUtils.findServiceNodeId(serviceName, function (node, iface) {
-                    self._binderServices[serviceName] = {
-                        name: serviceName,
-                        iface: iface,
-                        node: node,
-                        pid: binderProcsByNode[node].pid
-                    };
-
-                    if (!serviceName) {
-                        debug("No service name for interface " + iface);
-                    }
-
-                    successCallback(self._binderServices[serviceName]);
-                });
-            },
-            function (err) {
-                if (errorCallback) errorCallback(err);
+            if (!serviceName) {
+                debug("No service name for interface " + iface);
             }
-        );
+
+            successCallback(self._binderServices[serviceName]);
+        });
     } catch (err) {
         if (errorCallback) errorCallback(err);
     }

@@ -34,7 +34,7 @@ define(function (require) {
                     console.log("Icon found for " + d.get("pid"));
 
                     // Clear the selection elements.
-                    $("#pid_" + d.id).empty();
+                    $("#pid_" + d.id + " circle.node").remove();
 
                     // Replace the element by an image.
                     d3.select("#pid_" + d.id)
@@ -152,6 +152,97 @@ define(function (require) {
 
         },
 
+        _onNewProcessService: function (userService) {
+            var self = this;
+            var processG, processGServ, newUserServices, upUserServices,
+                obServ,
+                angle, cangle, sangle;
+            var iserv; // List of interesting services.
+            var servs; // All services for this process.
+
+            processG = d3.select("#pid_" + userService.pid);
+            processGServ = processG.selectAll(".pid_" + userService.pid + "_services");
+            obServ = processG.selectAll(".pid_" + userService.pid + " .service_orbit");
+            servs = self._binderProcesses.get(userService.pid).get("services");
+
+            // Don't render self-referential services that have no other client
+            // but their own parent process.
+
+            iserv = _.reject(servs, function (s) {
+                return s.clients.length === 1 && s.clients[0] === s.pid;
+            });
+
+            if (iserv.length > 0) {
+                angle = 270 / iserv.length + 1;
+                cangle = 45;
+                sangle = [];
+
+                for (var i = 0; i < iserv.length; i++) {
+                    sangle.push(cangle += angle);
+                }
+
+                upUserServices = processGServ.data(iserv, function (d) { return d.intent; });
+                newUserServices = upUserServices.enter();
+
+                // Add the orbit if there is not one already.
+                if (obServ.empty()) {
+                    newUserServices
+                        .append("circle")
+                        .attr("class", "service_orbit")
+                        .attr("r", 40);
+                }
+
+/*                if (!self._linksBetweenProcesses[userService.pid]) {
+                    self._linksBetweenProcesses[userService.pid] = [];
+                }
+
+                userService.clients.forEach(function (clientPid) {
+                    if (!_.contains(self._linksBetweenProcesses[userService.pid], clientPid)) {
+                        self._linksBetweenProcesses[userService.pid].push(clientPid);
+                    }
+                });*/
+
+/*                self._userLinkBox.selectAll(".link")
+                    .data(self._linksBetweenProcesses, function (d) {
+                        return "source-" + d.source.id + " target-" + d.target.id;
+                    })
+                    .enter()
+                    .append("line")
+                    .attr("class", function(d) {
+                        return "link source-" + d.source.id + " target-" + d.target.id;
+                    })
+                    .attr("x1", function (l) { return l.source.x; })
+                    .attr("y1", function (l) { return l.source.y; })
+                    .attr("x2", function (l) { return l.target.x; })
+                    .attr("y2", function (l) { return l.target.y; });*/
+
+                newUserServices
+                    .append("g")
+                    .attr("class", "pid_" + userService.pid + "_services")
+                    .attr("transform", function (d) {
+                        d.angle = sangle.pop();
+                        return "translate(40) rotate(" + d.angle + ",-40,0)";
+                    })
+                    .append("circle")
+                    .attr("class", "service")
+                    .attr("r", "5");
+
+                upUserServices
+                    .attr("transform", function (d) {
+                        if (sangle.length > 0) {
+                            d.angle = sangle.pop();
+                            return "translate(40) rotate(" + d.angle + ",-40,0)";
+                        }
+                    });
+
+                self._force.start();
+            }
+        },
+
+        _onRemovedProcessService: function (userService) {
+
+        },
+
         /**
          * Called when there is a new process added in the collection.
          */
@@ -193,7 +284,7 @@ define(function (require) {
                 .each(function (d) {
                     d.x = (2 * (Math.random() - 0.5)) * self._radius + self._centerX;
                     d.y = (2 * (Math.random() - 0.5)) * self._radius + self._centerY;
-                    d.radius = 5;
+                    d.radius = 8;
                 })
                 .attr("transform", function (d) {
                     return "translate(" + d.radius + ", " + d.radius + ")";
@@ -359,7 +450,11 @@ define(function (require) {
         /**
          * Precalculate the positions available for service nodes.
          *
-         * ... leave this alone!
+         * .... This is BLASPHEMY
+         * ....... This is MADNESS
+         * .......... THIS
+         * ............IS
+         * .............D3!
          */
         _prepareCircle: function (n) {
             var self = this;
@@ -441,14 +536,29 @@ define(function (require) {
                 .attr("height", h)
                 .attr("xmlns", "http://www.w3.org/2000/svg");
 
+            // Links between processes
+            self._userLinkBox = self._svg.append("g");
+
+            // Links between process and services.
             self._linkBox = self._svg.append("g");
+
+            // The nodes
             self._nodeBox = self._svg.append("g");
 
             self._links = [];
             self._linksByProcess = {};
+            self._linksBetweenProcesses = {};
 
             self._force = d3.layout.force()
-                .charge(-250)
+                .charge(function (d) {
+                    if (d.get("services").length > 5) {
+                        return -1000;
+                    } else if (d.get("services").length > 0) {
+                        return -750;
+                    } else {
+                        return -250;
+                    }
+                })
                 .gravity(0)
                 .on("tick", function (e) { self._tick.apply(self, [e]); });
 
@@ -462,6 +572,14 @@ define(function (require) {
 
             self._binderProcesses.on("remove", function () {
                 self._onNewBinderProcess.apply(self, arguments);
+            });
+
+            self._binderProcesses.on("serviceadded", function () {
+                self._onNewProcessService.apply(self, arguments);
+            });
+
+            self._binderProcesses.on("serviceremoved", function () {
+                self._onRemovedProcessService.apply(self, arguments);
             });
         }
     });

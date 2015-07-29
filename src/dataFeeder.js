@@ -28,18 +28,33 @@ var DataFeeder = function (binderWatcher, sock) {
     self._sock = sock;
     self._up2Processes = {};
     self._up2Services = {};
+    self._up2ProcessServices = {};
 
-    binderWatcher.addListener("onServiceData", function (service) {
+    self._cbOnServiceData = function (service) {
         self._onServiceData.apply(self, [service]);
-    });
+    };
 
-    binderWatcher.addListener("onProcessAdded", function (process) {
+    self._cbOnProcessAdded = function (process) {
         self._onProcessAdded.apply(self, [process]);
-    });
+    };
 
-    binderWatcher.addListener("onProcessRemoved", function (processPid) {
+    self._cbOnProcessServiceAdded = function (processService) {
+        self._onProcessServiceAdded.apply(self, [processService]);
+    };
+
+    self._cbOnProcessServiceRemoved = function (processService) {
+        self._onProcessServiceRemoved.apply(self, [processService]);
+    };
+
+    self._cbOnProcessRemoved = function (processPid) {
         self._onProcessRemoved.apply(self, [processPid]);
-    });
+    };
+
+    binderWatcher.addListener("onServiceData", self._cbOnServiceData);
+    binderWatcher.addListener("onProcessAdded", self._cbOnProcessAdded);
+    binderWatcher.addListener("onProcessRemoved", self._cbOnProcessRemoved);
+    binderWatcher.addListener("onProcessServiceAdded", self._cbOnProcessServiceAdded);
+    binderWatcher.addListener("onProcessServiceRemoved", self._cbOnProcessServiceRemoved);
 };
 
 util.inherits(DataFeeder, events.EventEmitter);
@@ -48,6 +63,7 @@ DataFeeder.prototype.start = function () {
     var self = this;
     var binderServices = self._binderWatcher.getServices();
     var binderProcesses = self._binderWatcher.getProcesses();
+    var userProcesses = self._binderWatcher.getUserProcesses();
 
     debug("Connection: data feeder started ["
        + _.values(binderServices).length + " services, " +
@@ -62,6 +78,25 @@ DataFeeder.prototype.start = function () {
         self._up2Processes[binderProcesses.pid] = true;
         self._sock.emit("processadded", binderProcess);
     });
+
+    _.values(userProcesses).forEach(function (userProcessService) {
+        _.values(userProcessService.services).forEach(function (userService) {
+            self._up2ProcessServices[userService.intent] = true;
+            self._sock.emit("processserviceadded", userService);
+        });
+    });
+};
+
+DataFeeder.prototype.stop = function () {
+    var self = this;
+
+    debug("Disconnection, data feeder stopped");
+
+    self._binderWatcher.removeListener("onServiceData", self._cbOnServiceData);
+    self._binderWatcher.removeListener("onProcessAdded", self._cbOnProcessServiceAdded);
+    self._binderWatcher.removeListener("onProcessRemoved", self._cbOnProcessRemoved);
+    self._binderWatcher.removeListener("onProcessServiceAdded", self._cbOnProcessServiceAdded);
+    self._binderWatcher.removeListener("onProcessServiceRemoved", self._cbOnProcessServiceRemoved);
 };
 
 DataFeeder.prototype._onServiceData = function (binderService) {
@@ -78,9 +113,9 @@ DataFeeder.prototype._onServiceData = function (binderService) {
 DataFeeder.prototype._onProcessAdded = function (binderProcess) {
     var self = this;
 
-    debug("Process " + binderProcess.pid + " was added");
-
     if (!self._up2Processes[binderProcess.pid]) {
+        debug("Process " + binderProcess.pid + " was added");
+
         self._up2Processes[binderProcess.pid] = true;
         self._sock.emit("processadded", binderProcess);
     }
@@ -89,11 +124,33 @@ DataFeeder.prototype._onProcessAdded = function (binderProcess) {
 DataFeeder.prototype._onProcessRemoved = function (processPid) {
     var self = this;
 
-    debug("Process " + processPid + " is gone");
-
     if (self._up2Processes[processPid]) {
+        debug("Process " + processPid + " is gone");
+
         delete self._up2Processes[processPid];
         self._sock.emit("processremoved", processPid);
+    }
+};
+
+DataFeeder.prototype._onProcessServiceAdded = function (processService) {
+    var self = this;
+
+    if (!self._up2ProcessServices[processService.intent]) {
+        debug("Process " + processService.pid + " service " + processService.intent + " STARTED");
+
+        self._up2ProcessServices[processService.intent] = true;
+        self._sock.emit("processserviceadded", processService);
+    }
+};
+
+DataFeeder.prototype._onProcessServiceRemoved = function (processService) {
+    var self = this;
+
+    if (self._up2ProcessServices[processService.intent]) {
+        debug("Process " + processService.pid+ " service " + processService.intent + " STOPPED");
+
+        delete self._up2ProcessServices[processService.intent];
+        self._sock.emit("processserviceremoved", processService);
     }
 };
 

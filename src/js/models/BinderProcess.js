@@ -25,9 +25,36 @@ define(function (require) {
         initialize: function () {
             var self = this;
 
+            self.set("services", []);
+
             // Initialize a new Process object that we can fetch.
             self.set("process", new Process({ pid: self.get("pid") }));
             self.get("process").fetch();
+        },
+
+        addUserService: function (userService) {
+            var self = this;
+            var currentServices = self.get("services");
+
+            if (!_.some(currentServices, function (cs) {
+                    return userService.intent === cs.intent;
+                })) {
+                currentServices.push(userService);
+                self.set("services", currentServices);
+
+                this.trigger("serviceadded", userService);
+            }
+        },
+
+        removeUserService: function (userService) {
+            var self = this;
+            var currentServices = self.get("services");
+
+            self.set("services", _.reject(currentServices, function (cs) {
+                return userService.intent === cs.intent;
+            }));
+
+            this.trigger("serviceremoved", userService);
         },
 
         getServiceRefs: function () {

@@ -22,6 +22,7 @@ var path = require("path");
 var cp = require("child_process");
 var _ = require("underscore");
 var debug = require("debug")("be:utils");
+var linebyline = require("linebyline");
 
 var requests = {};
 var sm = new Binder.ServiceManager();
@@ -64,80 +65,72 @@ var readAllBinderProcFiles = function (resultCb) {
 var readBinderStateFile = function (successCallback, errorCallback) {
     var stateFile = "/sys/kernel/debug/binder/state",
         stateData = {},
-        currentProc = null;
+        currentProc = null,
+        liner = new linebyline(stateFile);
 
-    fs.readFile(stateFile, function (err, data) {
-        if (err) {
-            if (errorCallback)
-                return errorCallback(err);
-            else
-                throw "readBinderProcFile error: " + err;
+    liner.on("line", function (line) {
+        var dataLine = _.filter(line.trim().split(" "), function (item) {
+            return item !== "";
+        });
+        var dataLineType = dataLine.shift();
+
+        if (dataLineType == "proc") {
+            currentProc = dataLine.shift();
+
+            stateData[currentProc] = {};
+            stateData[currentProc].pid = currentProc;
+            stateData[currentProc].threads = [];
+            stateData[currentProc].refs = [];
+            stateData[currentProc].nodes = [];
         }
+        else if (currentProc && dataLineType === "thread") {
+            var threadInfo = {};
 
-        var dataLines = data.toString().split("\n");
-
-        for (var j = 0; j < dataLines.length; j++) {
-            var dataLine = _.filter(dataLines[j].trim().split(" "), function (item) {
-                return item !== "";
-            });
-            var dataLineType = dataLine.shift();
-
-            if (dataLineType == "proc") {
-                currentProc = dataLine.shift();
-
-                stateData[currentProc] = {};
-                stateData[currentProc].pid = currentProc;
-                stateData[currentProc].threads = [];
-                stateData[currentProc].refs = [];
-                stateData[currentProc].nodes = [];
+            threadInfo.id = dataLine.shift().replace(":", "");
+            while (dataLine.length > 0) {
+                threadInfo[dataLine.shift()] = dataLine.shift();
             }
-            else if (currentProc && dataLineType === "thread") {
-                var threadInfo = {};
 
-                threadInfo.id = dataLine.shift().replace(":", "");
-                while (dataLine.length > 0) {
-                    threadInfo[dataLine.shift()] = dataLine.shift();
-                }
+            stateData[currentProc].threads.push(threadInfo);
+        }
+        else if (currentProc && dataLineType === "ref") {
+            var refInfo = {};
 
-                stateData[currentProc].threads.push(threadInfo);
-            }
-            else if (currentProc && dataLineType === "ref") {
-                var refInfo = {};
+            refInfo.id = dataLine.shift().replace(":", "");
 
-                refInfo.id = dataLine.shift().replace(":", "");
+            refInfo[dataLine.shift()] = dataLine.shift();
+            if (dataLine[0] == "dead") {
+                dataLine.shift();
+                refInfo.isdead = true;
+            } else
+                refInfo.isdead = false;
 
+            while (dataLine.length > 0) {
                 refInfo[dataLine.shift()] = dataLine.shift();
-                if (dataLine[0] == "dead") {
-                    dataLine.shift();
-                    refInfo.isdead = true;
-                } else
-                    refInfo.isdead = false;
-
-                while (dataLine.length > 0) {
-                    refInfo[dataLine.shift()] = dataLine.shift();
-                }
-
-                stateData[currentProc].refs.push(refInfo);
-
-            } else if (currentProc && dataLineType === "node") {
-                var nodeInfo = {};
-
-                nodeInfo.id = dataLine.shift().replace(":", "");
-
-                // There is 2 hexadecimal numbers on a "node" line.
-                // I don't know what they are.
-                nodeInfo.data = [dataLine.shift(), dataLine.shift()];
-
-                while (dataLine.length > 0) {
-                    nodeInfo[dataLine.shift()] = dataLine.shift();
-                }
-
-                stateData[currentProc].nodes.push(nodeInfo);
             }
-        }
 
-        return successCallback(stateData);
-    });
+            stateData[currentProc].refs.push(refInfo);
+
+        } else if (currentProc && dataLineType === "node") {
+            var nodeInfo = {};
+
+            nodeInfo.id = dataLine.shift().replace(":", "");
+
+            // There is 2 hexadecimal numbers on a "node" line.
+            // I don't know what they are.
+            nodeInfo.data = [dataLine.shift(), dataLine.shift()];
+
+            while (dataLine.length > 0) {
+                nodeInfo[dataLine.shift()] = dataLine.shift();
+            }
+
+            stateData[currentProc].nodes.push(nodeInfo);
+        }
+    }
+    ).on("end", function () {
+            return successCallback(stateData);
+        }
+    );
 };
 
 var readBinderProcFile = function (pid, successCallback, errorCallback) {

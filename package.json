@@ -1,49 +1,59 @@
 {
-    "name": "binder-explorer",
-    "version": "0.1.0",
-    "private": true,
-    "license": "Apache-2.0",
-    "author": {
-        "name": "François-Denis Gonthier",
-        "email": "francois-denis.gonthier@opersys.com"
+  "name": "binder-explorer",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "author": {
+    "name": "François-Denis Gonthier",
+    "email": "francois-denis.gonthier@opersys.com"
+  },
+  "prebuilts": {
+    "modules": {
+      "ia32": [
+        "https://github.com/opersys/jsbinder/releases/download/0.1.1/jsbinder-0.1.1_ia32.tar.gz"
+      ],
+      "arm": [
+        "https://github.com/opersys/jsbinder/releases/download/0.1.1/jsbinder-0.1.1_arm.tar.gz"
+      ]
     },
-    "prebuilts": {
-        "modules": {
-            "ia32": [ "https://github.com/opersys/jsbinder/releases/download/0.1.1/jsbinder-0.1.1_ia32.tar.gz" ],
-            "arm": [ "https://github.com/opersys/jsbinder/releases/download/0.1.1/jsbinder-0.1.1_arm.tar.gz" ]
-        },
-        "misc": {
-            "ia32": [ "https://github.com/opersys/node/releases/download/v0.10.33/node_ia32.tar.gz" ],
-            "arm": [ "https://github.com/opersys/node/releases/download/v0.10.33/node_arm.tar.gz" ]
-        }
-    },
-    "dependencies": {
-        "js-cache": "1.0.2",
-        "async": "1.0.0",
-        "express": "*",
-        "express-busboy": "*",
-        "serve-static": "*",
-        "morgan": "*",
-        "queue": "*",
-        "underscore": "*",
-        "pslook": "*",
-        "guid": "*",
-        "lstream": "*",
-        "socket.io": "1.3.5",
-        "debug": "2.2.0"
-    },
-    "devDependencies": {
-        "grunt": "~0.4.2",
-        "async": "1.0.0",
-        "grunt-bower-requirejs": "*",
-        "grunt-bower-concat": "*",
-        "grunt-bower": "*",
-        "grunt-mkdir": "*",
-        "grunt-contrib-copy": "*",
-        "grunt-chmod": "*",
-        "grunt-auto-install": "*",
-        "grunt-contrib-compress": "*",
-        "grunt-exec": "*",
-        "download": "4.1.2"
+    "misc": {
+      "ia32": [
+        "https://github.com/opersys/node/releases/download/v0.10.33/node_ia32.tar.gz"
+      ],
+      "arm": [
+        "https://github.com/opersys/node/releases/download/v0.10.33/node_arm.tar.gz"
+      ]
     }
+  },
+  "dependencies": {
+    "async": "1.0.0",
+    "debug": "2.2.0",
+    "express": "*",
+    "express-busboy": "*",
+    "guid": "*",
+    "jison": "^0.4.15",
+    "js-cache": "1.0.2",
+    "lstream": "*",
+    "morgan": "*",
+    "pslook": "*",
+    "queue": "*",
+    "serve-static": "*",
+    "socket.io": "1.3.5",
+    "underscore": "*",
+    "linebyline": "0.0.9"
+  },
+  "devDependencies": {
+    "grunt": "~0.4.2",
+    "async": "1.0.0",
+    "grunt-bower-requirejs": "*",
+    "grunt-bower-concat": "*",
+    "grunt-bower": "*",
+    "grunt-mkdir": "*",
+    "grunt-contrib-copy": "*",
+    "grunt-chmod": "*",
+    "grunt-auto-install": "*",
+    "grunt-contrib-compress": "*",
+    "grunt-exec": "*",
+    "download": "4.1.2"
+  }
 }
