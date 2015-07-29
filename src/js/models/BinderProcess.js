@@ -58,15 +58,17 @@ define(function (require) {
         },
 
         getServiceRefs: function () {
-            var self = this, serviceRefs = [], i;
+            var self = this, serviceRefs = [], unknownRefs = [], i;
 
             _.each(self.get("refs"), function (ref) {
                 if ((i = self.collection.getServiceByNode(ref.node))) {
                     serviceRefs.push(i);
+                } else {
+                    unknownRefs.push(ref.node);
                 }
             });
 
-            return serviceRefs;
+            return { knownRefs: serviceRefs, unknownRefs: unknownRefs };
         }
     });
 });

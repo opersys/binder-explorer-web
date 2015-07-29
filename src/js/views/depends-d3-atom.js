@@ -192,30 +192,6 @@ define(function (require) {
                         .attr("r", 40);
                 }
 
-/*                if (!self._linksBetweenProcesses[userService.pid]) {
-                    self._linksBetweenProcesses[userService.pid] = [];
-                }
-
-                userService.clients.forEach(function (clientPid) {
-                    if (!_.contains(self._linksBetweenProcesses[userService.pid], clientPid)) {
-                        self._linksBetweenProcesses[userService.pid].push(clientPid);
-                    }
-                });*/
-
-/*                self._userLinkBox.selectAll(".link")
-                    .data(self._linksBetweenProcesses, function (d) {
-                        return "source-" + d.source.id + " target-" + d.target.id;
-                    })
-                    .enter()
-                    .append("line")
-                    .attr("class", function(d) {
-                        return "link source-" + d.source.id + " target-" + d.target.id;
-                    })
-                    .attr("x1", function (l) { return l.source.x; })
-                    .attr("y1", function (l) { return l.source.y; })
-                    .attr("x2", function (l) { return l.target.x; })
-                    .attr("y2", function (l) { return l.target.y; });*/
-
                 newUserServices
                     .append("g")
                     .attr("class", "pid_" + userService.pid + "_services")
@@ -241,6 +217,36 @@ define(function (require) {
 
         _onRemovedProcessService: function (userService) {
 
+        },
+
+        /**
+         * Update the links between processes and services.
+         */
+        _updateServiceLinks: function () {
+            var self = this;
+            var links, newLinks, upLinks;
+
+            links = self._linkBox.selectAll(".link");
+            upLinks = links.data(self._links, function (d) {
+                return "source-" + d.source.id + " target-" + d.target.id;
+            });
+            newLinks = upLinks.enter();
+
+            // Refresh all the existing links position.
+            links.attr("x1", function (l) { return l.source.x; })
+                .attr("y1", function (l) { return l.source.y; })
+                .attr("x2", function (l) { return l.target.x; })
+                .attr("y2", function (l) { return l.target.y; });
+
+            // Add the missing links.
+            newLinks.append("line")
+                .attr("class", function(d) {
+                    return "link source-" + d.source.id + " target-" + d.target.id;
+                })
+                .attr("x1", function (l) { return l.source.x; })
+                .attr("y1", function (l) { return l.source.y; })
+                .attr("x2", function (l) { return l.target.x; })
+                .attr("y2", function (l) { return l.target.y; });
         },
 
         /**
@@ -312,50 +318,37 @@ define(function (require) {
                 });
 
             var srefs = binderProcess.getServiceRefs();
+            var krefs = srefs.knownRefs;
+            var urefs = srefs.unknownRefs;
 
-            // This elaborate contraption is meant to avoid adding the same links several
-            // times to the self._links array.
+            self._linksByProcess[binderProcess.get("pid")] = d3.set();
 
-            if (!self._linksByProcess[binderProcess.get("pid")]) {
-                self._linksByProcess[binderProcess.get("pid")] = {};
-            }
+            krefs.forEach(function (binderService) {
+                self._linksByProcess[binderProcess.get("pid")].add(binderService.get("name"));
+            });
 
-            srefs.forEach(function (binderService) {
-                if (!self._linksByProcess[binderProcess.get("pid")][binderService.get("name")]) {
-                    self._linksByProcess[binderProcess.get("pid")][binderService.get("name")] = false;
+            urefs.forEach(function (uref) {
+                if (!self._pendingServiceLinks[uref]) {
+                    self._pendingServiceLinks[uref] = d3.set();
                 }
+                self._pendingServiceLinks[uref].add(binderProcess.get("pid"));
             });
 
             _.each(_.keys(self._linksByProcess), function (binderProcessPid) {
                 var binderProcess = self._binderProcesses.get(binderProcessPid);
+                var linkedServices = self._linksByProcess[binderProcess.get("pid")];
 
-                _.each(_.keys(self._linksByProcess[binderProcessPid]), function (binderServiceName) {
+                linkedServices.forEach(function (binderServiceName) {
                     var binderService = self._binderServices.get(binderServiceName);
 
-                    if (!self._linksByProcess[binderProcessPid][binderServiceName]) {
-                        self._links.push({
-                            source: binderProcess,
-                            target: binderService
-                        });
-
-                        self._linksByProcess[binderProcessPid][binderServiceName] = true;
-                    }
+                    self._links.push({
+                        source: binderProcess,
+                        target: binderService
+                    });
                 });
             });
 
-            self._linkBox.selectAll(".link")
-                .data(self._links, function (d) {
-                    return "source-" + d.source.id + " target-" + d.target.id;
-                })
-                .enter()
-                .append("line")
-                .attr("class", function(d) {
-                    return "link source-" + d.source.id + " target-" + d.target.id;
-                })
-                .attr("x1", function (l) { return l.source.x; })
-                .attr("y1", function (l) { return l.source.y; })
-                .attr("x2", function (l) { return l.target.x; })
-                .attr("y2", function (l) { return l.target.y; });
+            self._updateServiceLinks();
 
             self._force
                 .nodes(self._binderProcesses.models)
@@ -365,7 +358,7 @@ define(function (require) {
         /**
          * Called when there is a new service added in the collection.
          */
-        _onNewBinderService: function () {
+        _onNewBinderService: function (binderService) {
             var self = this;
             var serviceNodes, newServiceNodes, newServiceNodeG;
 
@@ -445,6 +438,22 @@ define(function (require) {
                 .on("mouseout", function (data, i) {
                     self._onItemOut(this, data);
                 });
+
+            // Update the links
+            if (self._pendingServiceLinks[binderService.get("node")]) {
+                var pendingLinks = self._pendingServiceLinks[binderService.get("node")];
+
+                pendingLinks.forEach(function (binderProcessPid) {
+                    var binderProcess = self._binderProcesses.get(binderProcessPid);
+
+                    self._links.push({
+                        source: binderProcess,
+                        target: binderService
+                    });
+                });
+            }
+
+            self._updateServiceLinks();
         },
 
         /**
@@ -548,6 +557,7 @@ define(function (require) {
             self._links = [];
             self._linksByProcess = {};
             self._linksBetweenProcesses = {};
+            self._pendingServiceLinks = {};
 
             self._force = d3.layout.force()
                 .charge(function (d) {
