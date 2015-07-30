@@ -75,7 +75,7 @@ DataFeeder.prototype.start = function () {
     });
 
     _.values(binderProcesses).forEach(function (binderProcess) {
-        self._up2Processes[binderProcesses.pid] = true;
+        self._up2Processes[binderProcesses.proc] = true;
         self._sock.emit("processadded", binderProcess);
     });
 
@@ -118,6 +118,8 @@ DataFeeder.prototype._onProcessAdded = function (binderProcess) {
 
         self._up2Processes[binderProcess.pid] = true;
         self._sock.emit("processadded", binderProcess);
+    } else {
+        debug("Not sending process addition for " + processPid + ": Already added.");
     }
 };
 
@@ -129,6 +131,8 @@ DataFeeder.prototype._onProcessRemoved = function (processPid) {
 
         delete self._up2Processes[processPid];
         self._sock.emit("processremoved", processPid);
+    } else {
+        debug("Not sending process removal for " + processPid + ": Already gone.");
     }
 };
 
