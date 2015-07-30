@@ -41,6 +41,11 @@ circle.node.selected {
 }
 
 /* Color of the hovered links */
+line.userlink {
+    stroke: LightSkyBlue;
+}
+
+/* Color of the hovered links */
 line.link.hover {
     stroke: red;
 }

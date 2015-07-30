@@ -21,6 +21,7 @@ define(function (require) {
     var d3 = require("d3");
     var $ = require("jquery");
     var _ = require("underscore");
+    var Linker = require("linkhandler");
     d3.tip = require("d3-tip/index");
 
     return Backbone.View.extend({
@@ -71,6 +72,12 @@ define(function (require) {
                 });
 
             d3.selectAll(".link")
+                .attr("x1", function (l) { return l.source.x; })
+                .attr("y1", function (l) { return l.source.y; })
+                .attr("x2", function (l) { return l.target.x; })
+                .attr("y2", function (l) { return l.target.y; });
+
+            d3.selectAll(".userlink")
                 .attr("x1", function (l) { return l.source.x; })
                 .attr("y1", function (l) { return l.source.y; })
                 .attr("x2", function (l) { return l.target.x; })
@@ -154,8 +161,8 @@ define(function (require) {
 
         _onNewProcessService: function (userService) {
             var self = this;
-            var processG, processGServ, newUserServices, upUserServices,
-                obServ,
+            var processG, processGServ,
+                newUserServices, upUserServices, obServ,
                 angle, cangle, sangle;
             var iserv; // List of interesting services.
             var servs; // All services for this process.
@@ -172,51 +179,98 @@ define(function (require) {
                 return s.clients.length === 1 && s.clients[0] === s.pid;
             });
 
-            if (iserv.length > 0) {
-                angle = 270 / iserv.length + 1;
-                cangle = 45;
-                sangle = [];
+            // If iserv is empty, it means there is no exposed service to render.
+            if (iserv.length === 0) return;
 
-                for (var i = 0; i < iserv.length; i++) {
-                    sangle.push(cangle += angle);
-                }
+            angle = 270 / iserv.length + 1;
+            cangle = 45;
+            sangle = [];
 
-                upUserServices = processGServ.data(iserv, function (d) { return d.intent; });
-                newUserServices = upUserServices.enter();
+            for (var i = 0; i < iserv.length; i++) {
+                sangle.push(cangle += angle);
+            }
 
-                // Add the orbit if there is not one already.
-                if (obServ.empty()) {
-                    newUserServices
-                        .append("circle")
-                        .attr("class", "service_orbit")
-                        .attr("r", 40);
-                }
+            upUserServices = processGServ.data(iserv, function (d) { return d.intent; });
+            newUserServices = upUserServices.enter();
 
+            // Add the orbit if there is not one already.
+            if (obServ.empty()) {
                 newUserServices
-                    .append("g")
-                    .attr("class", "pid_" + userService.pid + "_services")
-                    .attr("transform", function (d) {
+                    .append("circle")
+                    .attr("class", "service_orbit")
+                    .attr("r", 40);
+            }
+
+            newUserServices
+                .append("g")
+                .attr("class", "pid_" + userService.pid + "_services")
+                .attr("transform", function (d) {
+                    d.angle = sangle.pop();
+                    return "translate(40) rotate(" + d.angle + ",-40,0)";
+                })
+                .append("circle")
+                .attr("class", "service")
+                .attr("r", "5");
+
+            upUserServices
+                .attr("transform", function (d) {
+                    if (sangle.length > 0) {
                         d.angle = sangle.pop();
                         return "translate(40) rotate(" + d.angle + ",-40,0)";
-                    })
-                    .append("circle")
-                    .attr("class", "service")
-                    .attr("r", "5");
+                    }
+                });
 
-                upUserServices
-                    .attr("transform", function (d) {
-                        if (sangle.length > 0) {
-                            d.angle = sangle.pop();
-                            return "translate(40) rotate(" + d.angle + ",-40,0)";
-                        }
-                    });
+            userService.clients.forEach(function (pid) {
+                if (self._binderProcesses.get(pid) != null) {
+                    self._userLinks.addLink(userService.pid, pid);
+                } else {
+                    console.log("Target process " + pid + " unknown. Can't make user service link.");
+                }
+            });
 
-                self._force.start();
-            }
+            self._updateProcessLinks();
+            self._force.start();
         },
 
         _onRemovedProcessService: function (userService) {
 
+        },
+
+        _updateProcessLinks: function () {
+            var self = this;
+            var userLinks, newUserLinks, upUserLinks;
+
+            userLinks = self._userLinkBox.selectAll(".link");
+            upUserLinks = userLinks.data(function () {
+                    return self._userLinks.getLinks(function (a, b) {
+                        return {
+                            source: self._binderProcesses.get(a),
+                            target: self._binderProcesses.get(b)
+                        };
+                    });
+                },
+                function (d) {
+                    return "source-" + d.source.id + " target-" + d.target.id;
+                }
+            );
+
+            newUserLinks = upUserLinks.enter();
+
+            // Refresh all the existing links position.
+            userLinks.attr("x1", function (l) { return l.source.x; })
+                .attr("y1", function (l) { return l.source.y; })
+                .attr("x2", function (l) { return l.target.x; })
+                .attr("y2", function (l) { return l.target.y; });
+
+            // Add the missing links.
+            newUserLinks.append("line")
+                .attr("class", function(d) {
+                    return "userlink source-" + d.source.id + " target-" + d.target.id;
+                })
+                .attr("x1", function (l) { return l.source.x; })
+                .attr("y1", function (l) { return l.source.y; })
+                .attr("x2", function (l) { return l.target.x; })
+                .attr("y2", function (l) { return l.target.y; });
         },
 
         /**
@@ -227,9 +281,18 @@ define(function (require) {
             var links, newLinks, upLinks;
 
             links = self._linkBox.selectAll(".link");
-            upLinks = links.data(self._links, function (d) {
-                return "source-" + d.source.id + " target-" + d.target.id;
-            });
+            upLinks = links.data(function () {
+                    return self._linksByProcess.getLinks(function (a, b) {
+                        return {
+                            source: self._binderProcesses.get(a),
+                            target: self._binderServices.get(b)
+                        };
+                    });
+                },
+                function (d) {
+                    return "source-" + d.source.id + " target-" + d.target.id;
+                }
+            );
             newLinks = upLinks.enter();
 
             // Refresh all the existing links position.
@@ -269,6 +332,10 @@ define(function (require) {
                     .each("end", function (d) {
                         d3.select("#pid_" + d.get("pid")).remove();
                     });
+
+                // Remove the links from that process.
+                self._linksByProcess.removeAll(d.get("pid"));
+                self._userLinks.removeAll(d.get("pid"));
             });
 
             // Add new process nodes.
@@ -321,10 +388,8 @@ define(function (require) {
             var krefs = srefs.knownRefs;
             var urefs = srefs.unknownRefs;
 
-            self._linksByProcess[binderProcess.get("pid")] = d3.set();
-
             krefs.forEach(function (binderService) {
-                self._linksByProcess[binderProcess.get("pid")].add(binderService.get("name"));
+                self._linksByProcess.addLink(binderProcess.get("pid"), binderService.get("name"));
             });
 
             urefs.forEach(function (uref) {
@@ -332,20 +397,6 @@ define(function (require) {
                     self._pendingServiceLinks[uref] = d3.set();
                 }
                 self._pendingServiceLinks[uref].add(binderProcess.get("pid"));
-            });
-
-            _.each(_.keys(self._linksByProcess), function (binderProcessPid) {
-                var binderProcess = self._binderProcesses.get(binderProcessPid);
-                var linkedServices = self._linksByProcess[binderProcess.get("pid")];
-
-                linkedServices.forEach(function (binderServiceName) {
-                    var binderService = self._binderServices.get(binderServiceName);
-
-                    self._links.push({
-                        source: binderProcess,
-                        target: binderService
-                    });
-                });
             });
 
             self._updateServiceLinks();
@@ -555,8 +606,8 @@ define(function (require) {
             self._nodeBox = self._svg.append("g");
 
             self._links = [];
-            self._linksByProcess = {};
-            self._linksBetweenProcesses = {};
+            self._userLinks = new Linker.Undirected();
+            self._linksByProcess = new Linker.Undirected();
             self._pendingServiceLinks = {};
 
             self._force = d3.layout.force()

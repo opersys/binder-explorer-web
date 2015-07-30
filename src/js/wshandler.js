@@ -48,7 +48,7 @@ define(function (require) {
     WSHandler.prototype._onProcessServiceAdded = function (userService) {
         var self = this;
 
-        if (self._binderProcesses.get(userService.pid) !== null) {
+        if (self._binderProcesses.get(userService.pid) != null) {
             self._binderProcesses.get(userService.pid).addUserService(userService);
         }
     };
@@ -56,7 +56,7 @@ define(function (require) {
     WSHandler.prototype._onProcessServiceRemoved = function (userService) {
         var self = this;
 
-        if (self._binderProcesses.get(userService.pid) !== null) {
+        if (self._binderProcesses.get(userService.pid) != null) {
             self._binderProcesses.get(userService.pid).removeUserService(userService);
         }
     };
