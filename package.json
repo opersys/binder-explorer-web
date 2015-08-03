@@ -43,17 +43,19 @@
     "linebyline": "0.0.9"
   },
   "devDependencies": {
-    "grunt": "~0.4.2",
     "async": "1.0.0",
-    "grunt-bower-requirejs": "*",
-    "grunt-bower-concat": "*",
-    "grunt-bower": "*",
-    "grunt-mkdir": "*",
-    "grunt-contrib-copy": "*",
-    "grunt-chmod": "*",
+    "chai": "^3.2.0",
+    "download": "4.1.2",
+    "grunt": "~0.4.2",
     "grunt-auto-install": "*",
+    "grunt-bower": "*",
+    "grunt-bower-concat": "*",
+    "grunt-bower-requirejs": "*",
+    "grunt-chmod": "*",
     "grunt-contrib-compress": "*",
+    "grunt-contrib-copy": "*",
     "grunt-exec": "*",
-    "download": "4.1.2"
+    "grunt-mkdir": "*",
+    "intern": "^3.0.0"
   }
 }

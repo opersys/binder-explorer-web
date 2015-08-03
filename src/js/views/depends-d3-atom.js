@@ -233,14 +233,54 @@ define(function (require) {
         },
 
         _onRemovedProcessService: function (userService) {
+            var self = this;
+            var processG, processGServ, obServ,
+                upUserServices, goneUserServices,
+                angle, cangle, sangle;
+            var iserv;
+            var servs;
 
+            processG = d3.select("#pid_" + userService.pid);
+
+            processGServ = processG.selectAll(".pid_" + userService.pid + "_services");
+            obServ = processG.selectAll(".pid_" + userService.pid + " .service_orbit");
+            servs = self._binderProcesses.get(userService.pid).get("services");
+
+            // Don't render self-referential services that have no other client
+            // but their own parent process.
+
+            iserv = _.reject(servs, function (s) {
+                return s.clients.length === 1 && s.clients[0] === s.pid;
+            });
+
+            // If iserv is empty, it means there is no exposed service to render.
+            if (iserv.length === 0) return;
+
+            angle = 270 / iserv.length + 1;
+            sangle = [];
+
+            upUserServices = processGServ.data(iserv, function (d) { return d.intent; });
+            goneUserServices = upUserServices.exit();
+
+            goneUserServices.remove();
+
+            upUserServices
+                .attr("transform", function (d) {
+                    if (sangle.length > 0) {
+                        d.angle = sangle.pop();
+                        return "translate(40) rotate(" + d.angle + ",-40,0)";
+                    }
+                });
+
+            self._updateProcessLinks();
+            self._force.start();
         },
 
         _updateProcessLinks: function () {
             var self = this;
-            var userLinks, newUserLinks, upUserLinks;
+            var userLinks, goneLinks, newUserLinks, upUserLinks;
 
-            userLinks = self._userLinkBox.selectAll(".link");
+            userLinks = self._userLinkBox.selectAll(".userlink");
             upUserLinks = userLinks.data(function () {
                     return self._userLinks.getLinks(function (a, b) {
                         return {
@@ -255,6 +295,10 @@ define(function (require) {
             );
 
             newUserLinks = upUserLinks.enter();
+            goneLinks = upUserLinks.exit();
+
+            // Remove the links that are now missing
+            goneLinks.remove();
 
             // Refresh all the existing links position.
             userLinks.attr("x1", function (l) { return l.source.x; })
@@ -278,7 +322,7 @@ define(function (require) {
          */
         _updateServiceLinks: function () {
             var self = this;
-            var links, newLinks, upLinks;
+            var links, goneLinks, newLinks, upLinks;
 
             links = self._linkBox.selectAll(".link");
             upLinks = links.data(function () {
@@ -294,6 +338,10 @@ define(function (require) {
                 }
             );
             newLinks = upLinks.enter();
+            goneLinks = upLinks.exit();
+
+            // Remove the links that are now missing.
+            goneLinks.remove();
 
             // Refresh all the existing links position.
             links.attr("x1", function (l) { return l.source.x; })
@@ -312,14 +360,15 @@ define(function (require) {
                 .attr("y2", function (l) { return l.target.y; });
         },
 
-        /**
-         * Called when there is a new process added in the collection.
-         */
-        _onNewBinderProcess: function (binderProcess) {
+        _onRemoveBinderProcess: function () {
             var self = this;
-            var processNodes, newProcessNodes, newProcessNodeG, goneProcessNodes;
+            var processNodes, goneProcessNodes;
 
-            processNodes  = self._nodeBox.selectAll(".node.process").data(self._binderProcesses.models);
+            processNodes  = self._nodeBox.selectAll(".node.process").data(self._binderProcesses.models,
+                function (model) {
+                    return model.get("pid");
+                }
+            );
 
             // Remove the nodes that are gone.
             goneProcessNodes = processNodes.exit();
@@ -337,6 +386,27 @@ define(function (require) {
                 self._linksByProcess.removeAll(d.get("pid"));
                 self._userLinks.removeAll(d.get("pid"));
             });
+
+            self._updateServiceLinks();
+            self._updateProcessLinks();
+
+            self._force
+                .nodes(self._binderProcesses.models)
+                .start();
+        },
+
+        /**
+         * Called when there is a new process added in the collection.
+         */
+        _onNewBinderProcess: function (binderProcess) {
+            var self = this;
+            var processNodes, newProcessNodes, newProcessNodeG;
+
+            processNodes  = self._nodeBox.selectAll(".node.process").data(self._binderProcesses.models,
+                function (model) {
+                    return model.get("pid");
+                }
+            );
 
             // Add new process nodes.
             newProcessNodes = processNodes.enter();
@@ -632,7 +702,7 @@ define(function (require) {
             });
 
             self._binderProcesses.on("remove", function () {
-                self._onNewBinderProcess.apply(self, arguments);
+                self._onRemoveBinderProcess.apply(self, arguments);
             });
 
             self._binderProcesses.on("serviceadded", function () {

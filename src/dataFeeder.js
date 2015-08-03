@@ -66,7 +66,7 @@ DataFeeder.prototype.start = function () {
     var userProcesses = self._binderWatcher.getUserProcesses();
 
     debug("Connection: data feeder started ["
-       + _.values(binderServices).length + " services, " +
+       + _.values(binderServices).length + " services, "
        + _.values(binderProcesses).length + " processes]");
 
     _.values(binderServices).forEach(function (binderService) {
@@ -75,9 +75,11 @@ DataFeeder.prototype.start = function () {
     });
 
     _.values(binderProcesses).forEach(function (binderProcess) {
-        self._up2Processes[binderProcesses.proc] = true;
+        self._up2Processes[binderProcess.pid] = true;
         self._sock.emit("processadded", binderProcess);
     });
+
+    console.log(self._up2Processes);
 
     _.values(userProcesses).forEach(function (userProcessService) {
         _.values(userProcessService.services).forEach(function (userService) {
@@ -119,13 +121,14 @@ DataFeeder.prototype._onProcessAdded = function (binderProcess) {
         self._up2Processes[binderProcess.pid] = true;
         self._sock.emit("processadded", binderProcess);
     } else {
-        debug("Not sending process addition for " + processPid + ": Already added.");
+        debug("Not sending process addition for " + binderProcess.pid + ": Already added.");
     }
 };
 
 DataFeeder.prototype._onProcessRemoved = function (processPid) {
     var self = this;
 
+    console.log(self._up2Processes);
     if (self._up2Processes[processPid]) {
         debug("Process " + processPid + " is gone");
 
