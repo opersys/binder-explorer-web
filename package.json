@@ -10,10 +10,10 @@
   "prebuilts": {
     "modules": {
       "ia32": [
-        "https://github.com/opersys/jsbinder/releases/download/0.1.1/jsbinder-0.1.1_ia32.tar.gz"
+        "https://github.com/opersys/jsbinder/releases/download/0.2.0/jsbinder-0.2.0_ia32.tar.gz"
       ],
       "arm": [
-        "https://github.com/opersys/jsbinder/releases/download/0.1.1/jsbinder-0.1.1_arm.tar.gz"
+        "https://github.com/opersys/jsbinder/releases/download/0.2.0/jsbinder-0.2.0_arm.tar.gz"
       ]
     },
     "misc": {
