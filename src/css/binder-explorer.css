@@ -40,14 +40,22 @@ circle.node.selected {
     fill: red;
 }
 
-/* Color of the hovered links */
+/* Color of links between user processes */
 line.userlink {
     stroke: LightSkyBlue;
+    stroke-width: 1;
+}
+
+/* Color of links between processes */
+line.userlink.hover {
+    stroke: DarkBlue;
+    stroke-width: 3;
 }
 
 /* Color of the hovered links */
 line.link.hover {
     stroke: red;
+    stroke-width: 3;
 }
 
 /* Color of the selected links */
@@ -59,6 +67,7 @@ line.link.selected {
 /* Color of neutral links */
 line.link {
     stroke: lightgray;
+    stroke-width: 1;
 }
 
 /* Color of the hovered nodes */

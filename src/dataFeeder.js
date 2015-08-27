@@ -79,8 +79,6 @@ DataFeeder.prototype.start = function () {
         self._sock.emit("processadded", binderProcess);
     });
 
-    console.log(self._up2Processes);
-
     _.values(userProcesses).forEach(function (userProcessService) {
         _.values(userProcessService.services).forEach(function (userService) {
             self._up2ProcessServices[userService.intent] = true;
@@ -128,7 +126,6 @@ DataFeeder.prototype._onProcessAdded = function (binderProcess) {
 DataFeeder.prototype._onProcessRemoved = function (processPid) {
     var self = this;
 
-    console.log(self._up2Processes);
     if (self._up2Processes[processPid]) {
         debug("Process " + processPid + " is gone");
 

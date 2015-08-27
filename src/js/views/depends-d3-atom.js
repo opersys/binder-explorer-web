@@ -29,6 +29,8 @@ define(function (require) {
         selectedItem: null,
 
         _fetchIcon: function (d) {
+            var self = this;
+
             $.ajax("http://" + window.location.host + "/icon/" + d.get("process").get("cmdline")[0], {
                 type: "HEAD",
                 success: function (data, status, jqXHR) {
@@ -47,6 +49,12 @@ define(function (require) {
                         })
                         .attr("xlink:xlink:href", function (d) {
                             return "http://" + window.location.host + "/icon/" + d.get("process").get("cmdline")[0];
+                        })
+                        .on("mouseover", function (data, i) {
+                            self._onItemOver(this, data);
+                        })
+                        .on("mouseout", function (data, i) {
+                            self._onItemOut(this, data);
                         });
                 },
                 error: function () {
@@ -100,16 +108,29 @@ define(function (require) {
             self._circlePositionIndex = 0;
         },
 
+        _moveTo: function (sourceSel, targetSel) {
+            var el = $(sourceSel).remove();
+            $(targetSel).append(el);
+        },
+
         _onItemOut: function (target, data) {
             var self = this;
 
             d3.select(target).select("circle").classed({"hover": false});
 
             if (data.collection === self._binderProcesses) {
+                self._moveTo(".link.source-" + data.id, ".linkBox.links");
+                self._moveTo(".userlink.source-" + data.id, ".linkBox.userLinks");
+                self._moveTo(".userlink.target-" + data.id, ".linkBox.userLinks");
+
                 d3.selectAll(".link.source-" + data.id).classed({"hover": false});
+                d3.selectAll(".userlink.source-" + data.id).classed({"hover": false});
+                d3.selectAll(".userlink.target-" + data.id).classed({"hover": false});
+
                 self._tip.hide(data);
             }
             else if (data.collection === self._binderServices) {
+                self._moveTo(".link.target-" + data.id, ".linkBox.links");
                 d3.selectAll(".link.target-" + data.id).classed({"hover": false});
             }
         },
@@ -120,9 +141,16 @@ define(function (require) {
             d3.select(target).select("circle").classed({"hover": true});
 
             if (data.collection === self._binderProcesses) {
+                self._moveTo(".link.source-" + data.id, ".linkBox.selectedLinks");
+                self._moveTo(".userlink.source-" + data.id, ".linkBox.selectedLinks");
+                self._moveTo(".userlink.target-" + data.id, ".linkBox.selectedLinks");
+
                 d3.selectAll(".link.source-" + data.id).classed({"hover": true});
+                d3.selectAll(".userlink.source-" + data.id).classed({"hover": true});
+                d3.selectAll(".userlink.target-" + data.id).classed({"hover": true});
             }
             else if (data.collection === self._binderServices) {
+                self._moveTo(".link.target-" + data.id, ".linkBox.selectedLinks");
                 d3.selectAll(".link.target-" + data.id).classed({"hover": true});
             }
         },
@@ -174,7 +202,6 @@ define(function (require) {
 
             // Don't render self-referential services that have no other client
             // but their own parent process.
-
             iserv = _.reject(servs, function (s) {
                 return s.clients.length === 1 && s.clients[0] === s.pid;
             });
@@ -195,7 +222,7 @@ define(function (require) {
 
             // Add the orbit if there is not one already.
             if (obServ.empty()) {
-                newUserServices
+                processG
                     .append("circle")
                     .attr("class", "service_orbit")
                     .attr("r", 40);
@@ -204,20 +231,14 @@ define(function (require) {
             newUserServices
                 .append("g")
                 .attr("class", "pid_" + userService.pid + "_services")
-                .attr("transform", function (d) {
-                    d.angle = sangle.pop();
-                    return "translate(40) rotate(" + d.angle + ",-40,0)";
-                })
                 .append("circle")
                 .attr("class", "service")
                 .attr("r", "5");
 
             upUserServices
                 .attr("transform", function (d) {
-                    if (sangle.length > 0) {
-                        d.angle = sangle.pop();
-                        return "translate(40) rotate(" + d.angle + ",-40,0)";
-                    }
+                    d.angle = sangle.pop();
+                    return "translate(40) rotate(" + d.angle + ",-40,0)";
                 });
 
             userService.clients.forEach(function (pid) {
@@ -243,7 +264,6 @@ define(function (require) {
             processG = d3.select("#pid_" + userService.pid);
 
             processGServ = processG.selectAll(".pid_" + userService.pid + "_services");
-            obServ = processG.selectAll(".pid_" + userService.pid + " .service_orbit");
             servs = self._binderProcesses.get(userService.pid).get("services");
 
             // Don't render self-referential services that have no other client
@@ -257,19 +277,27 @@ define(function (require) {
             if (iserv.length === 0) return;
 
             angle = 270 / iserv.length + 1;
+            cangle = 45;
             sangle = [];
 
-            upUserServices = processGServ.data(iserv, function (d) { return d.intent; });
-            goneUserServices = upUserServices.exit();
+            for (var i = 0; i < iserv.length; i++) {
+                sangle.push(cangle += angle);
+            }
 
+            upUserServices = processGServ.data(iserv, function (d) { return d.intent; });
+
+            // Clear the services that aren't there anymore.
+            goneUserServices = upUserServices.exit();
             goneUserServices.remove();
 
+            // Update the services that still exists.
             upUserServices
                 .attr("transform", function (d) {
-                    if (sangle.length > 0) {
-                        d.angle = sangle.pop();
-                        return "translate(40) rotate(" + d.angle + ",-40,0)";
-                    }
+                    if (sangle.length === 0)
+                        throw "Not enough angles when updating!";
+
+                    d.angle = sangle.pop();
+                    return "translate(40) rotate(" + d.angle + ",-40,0)";
                 });
 
             self._updateProcessLinks();
@@ -306,7 +334,7 @@ define(function (require) {
                 .attr("x2", function (l) { return l.target.x; })
                 .attr("y2", function (l) { return l.target.y; });
 
-            // Add the missing links.
+            // Add the missing links.                                                ho
             newUserLinks.append("line")
                 .attr("class", function(d) {
                     return "userlink source-" + d.source.id + " target-" + d.target.id;
@@ -438,6 +466,12 @@ define(function (require) {
 
             newProcessNodeG
                 .append("circle")
+                .on("mouseover", function (data, i) {
+                    self._onItemOver(this, data);
+                })
+                .on("mouseout", function (data, i) {
+                    self._onItemOut(this, data);
+                })
                 .attr("id", function (d) {
                     return d.get("process_" + d.get("id"));
                 })
@@ -667,10 +701,13 @@ define(function (require) {
                 .attr("xmlns", "http://www.w3.org/2000/svg");
 
             // Links between processes
-            self._userLinkBox = self._svg.append("g");
+            self._userLinkBox = self._svg.append("g").attr("class", "linkBox userLinks");
 
             // Links between process and services.
-            self._linkBox = self._svg.append("g");
+            self._linkBox = self._svg.append("g").attr("class", "linkBox links");
+
+            // This will contain the selected links, which are moved on top of the other.
+            self._selectedLinks = self._svg.append("g").attr("class", "linkBox selectedLinks");
 
             // The nodes
             self._nodeBox = self._svg.append("g");
