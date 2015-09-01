@@ -46,9 +46,6 @@ app.set("port", process.env.PORT || 3200);
 app.set("views", path.join(__dirname, "views"));
 app.set("json spaces", 2);
 
-// Static files.
-app.use(exStatic(path.join(__dirname, "public"), { index: false }));
-
 var imgCache = new cache();
 
 // Precache the default icon.
@@ -82,8 +79,12 @@ function fetchIcon (pkg, options) {
             method: "GET"
         };
 
-        var req = http.request(options, function (r) {
+        debug("Performing HTTP request");
+
+        var req = http.request(opts, function (r) {
             var newImgBuf, sz, idx = 0;
+
+            debug("Received HTTP request reply");
 
             if (r.statusCode === 200) {
                 sz = parseInt(r.headers["content-length"]);
@@ -96,7 +97,6 @@ function fetchIcon (pkg, options) {
 
                 r.on("end", function () {
                     imgCache.set(pkg, newImgBuf, 86400000);
-                    r.end();
                     if (options.success) options.success(newImgBuf);
                 });
             }
@@ -153,7 +153,6 @@ app.get("/icon/:app", function (req, res) {
 
     fetchIcon(req.params.app, {
         success: function (imgBuf) {
-            res.set("Content-length", imgBuf.length);
             res.write(imgBuf, function () {
                 res.end();
             });
@@ -289,6 +288,9 @@ app.get("/binder/services", function (req, res) {
         return { name: serviceName };
     }));
 });
+
+// Static files.
+app.use(exStatic(path.join(__dirname, "public"), { index: false }));
 
 var io = new SocketIO({ transports: ["websocket"] });
 var binderWatcher = new BinderWatcher();
