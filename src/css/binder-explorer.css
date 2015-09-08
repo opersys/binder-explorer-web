@@ -18,6 +18,15 @@ body {
     margin: 0 0 0 0
 }
 
+g.node.service text {
+    font-family: sans-serif;
+    font-size: smaller;
+}
+
+g.node.process text {
+    font-family: sans-serif;
+}
+
 cicle.service {
     fill: blue;
 }
