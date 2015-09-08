@@ -1,0 +1,32 @@
+{{!
+ id: Unique identifier for the dialog box.
+ serviceName: Name of the service
+ inboundLinks: List of process that talks to this service.
+   .pid: PID of the process
+   .icon: URL to the icon of the process
+ hasInboundLinks: boolean that tells if there are any inboundLinks
+--}}
+<div class="dialog" id="{{id}}">
+    <div class="title">{{serviceName}}</div>
+
+    <div class="dataItem">
+        <span class="label">Host PID</span>
+        <span class="value">{{pid}}</span>
+    </div>
+
+    <div class="dataItem">
+        <span class="label">AIDL</span>
+        <span class="aidl  value"></span>
+    </div>
+
+{{#if hasInboundLinks}}
+    <div class="dataList">
+        <span class="title">Inbound links</span>
+        <ul>
+            {{#each inboundLinks}}
+                <li>{{this}}</li>
+            {{/each}}
+        </ul>
+    </div>
+{{/if}}
+</div>

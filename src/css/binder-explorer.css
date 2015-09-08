@@ -88,6 +88,27 @@ line.link {
     z-index: 1000;
 }
 
+.dialog .title {
+    font-size: x-large;
+}
+
+.d3-tip .tip {
+}
+
+.d3-tip .tip .title {
+    font-size: smaller;
+}
+
+.d3-tip .tip .body {
+
+}
+
+.d3-tip .tip .footer {
+    text-align: right;
+    margin-top: 10px;
+    font-size: xx-small;
+}
+
 /* Creates a small triangle extender for the tooltip */
 .d3-tip:after {
     box-sizing: border-box;

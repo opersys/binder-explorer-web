@@ -32,7 +32,6 @@ define(function (require) {
     var registerSuite = require('intern!object');
     var assert = require('intern/chai!assert');
 
-
     var f = function (a, b) {
         if (a == null) throw ("a should not be null");
         if (b == null) throw ("b should not be null");
@@ -111,6 +110,20 @@ define(function (require) {
 
             assert.lengthOf(b, 1);
             assert.deepEqual({ source: "x", target: "y" }, b[0]);
+        },
+
+        "getLinksFrom": function () {
+            var b, link;
+
+            link = new Linker.Undirected();
+            link.addLink("a", "b");
+            link.addLink("a", "c");
+            link.addLink("b", "c");
+
+            b = link.getLinksFrom("a", f);
+            assert.lengthOf(b, 2);
+            assert.deepEqual({ source: "a", target: "b" }, b[0]);
+            assert.deepEqual({ source: "a", target: "c" }, b[1]);
         }
     });
 });

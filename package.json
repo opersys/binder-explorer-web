@@ -54,8 +54,10 @@
     "grunt-chmod": "*",
     "grunt-contrib-compress": "*",
     "grunt-contrib-copy": "*",
+    "grunt-contrib-handlebars": "0.10.2",
     "grunt-exec": "*",
     "grunt-mkdir": "*",
-    "intern": "^3.0.0"
+    "intern": "^3.0.0",
+    "handlebars": "3.0.3"
   }
 }

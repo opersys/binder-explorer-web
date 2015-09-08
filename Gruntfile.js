@@ -30,6 +30,7 @@ module.exports = function (grunt) {
         prebuilts_config = {},
         exec_config = {},
         compress_config = {},
+        handlebars_config = {},
         has_config = false;
 
     if (!fs.existsSync("config.json")) {
@@ -80,6 +81,21 @@ module.exports = function (grunt) {
                 }
             }
         };
+
+        handlebars_config["dist_" + arch] = {
+            options: {
+                namespace: "JST",
+                amd: true
+            },
+            files: {}
+        };
+        handlebars_config["dist_" + arch].files[mkdist("public", "js", "templates.js")] = [
+            "./src/templates/template-aidl-dialog.hbs",
+            "./src/templates/template-services.hbs",
+            "./src/templates/template-services-dialog.hbs",
+            "./src/templates/template-processes.hbs",
+            "./src/templates/template-processes-dialog.hbs"
+        ];
 
         copy_config["dist_" + arch] = {
             files: [
@@ -159,7 +175,8 @@ module.exports = function (grunt) {
             "bower:dist_" + arch,
             "copy:dist_" + arch,
             "prebuilts:dist_" + arch,
-            "exec:dist_npm_" + arch
+            "exec:dist_npm_" + arch,
+            "handlebars:dist_" + arch
         ]);
 
         grunt.registerTask("out_" + arch, [
@@ -175,6 +192,7 @@ module.exports = function (grunt) {
     grunt.config("exec", exec_config);
     grunt.config("prebuilts", prebuilts_config);
     grunt.config("compress", compress_config);
+    grunt.config("handlebars", handlebars_config);
 
     grunt.registerTask("toolchain", "Generate an Android toolchain", function (arch) {
         var architectures = [];
@@ -281,6 +299,7 @@ module.exports = function (grunt) {
     grunt.loadNpmTasks("grunt-auto-install");
     grunt.loadNpmTasks("grunt-exec");
     grunt.loadNpmTasks("grunt-contrib-compress");
+    grunt.loadNpmTasks("grunt-contrib-handlebars");
     grunt.loadNpmTasks("grunt-chmod");
 
     grunt.registerTask("default", ["dist_arm", "dist_ia32"]);

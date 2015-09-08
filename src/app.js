@@ -48,6 +48,9 @@ app.set("json spaces", 2);
 
 var imgCache = new cache();
 
+var agent = new http.Agent();
+agent.maxSockets = 1000;
+
 // Precache the default icon.
 fs.stat(defaultIcon, function (err, defStat) {
     var defIn = fs.createReadStream(defaultIcon);
@@ -76,15 +79,16 @@ function fetchIcon (pkg, options) {
             hostname: "localhost",
             port: "3001",
             path: "/icon/" + pkg,
-            method: "GET"
+            method: "GET",
+            agent: agent
         };
 
-        debug("Performing HTTP request");
+        debug("Performing HTTP request to /icon/" + pkg);
 
         var req = http.request(opts, function (r) {
             var newImgBuf, sz, idx = 0;
 
-            debug("Received HTTP request reply");
+            debug("Received HTTP request from /icon/" + pkg);
 
             if (r.statusCode === 200) {
                 sz = parseInt(r.headers["content-length"]);
@@ -97,6 +101,7 @@ function fetchIcon (pkg, options) {
 
                 r.on("end", function () {
                     imgCache.set(pkg, newImgBuf, 86400000);
+                    r.socket.destroy();
                     if (options.success) options.success(newImgBuf);
                 });
             }
@@ -108,8 +113,7 @@ function fetchIcon (pkg, options) {
                     if (options.error) options.error();
                 }
             }
-        }).on("error",
-            function () {
+        }).on("error", function () {
                 if (hasDefault) {
                     imgBuf = imgCache.get("default");
                     if (options.success) options.success(imgBuf);
@@ -119,17 +123,63 @@ function fetchIcon (pkg, options) {
             }
         );
 
-        req.setTimeout(500,
+        /*req.setTimeout(500,
             function () {
                 if (options.error) options.error();
             }
-        );
+        );*/
 
         req.end();
     }
     else {
         if (options.success) options.success(imgBuf);
     }
+}
+
+/**
+ * Fetch the AIDL interface for a particular class name.
+ */
+function fetchAidl(serviceName, serviceClassName, options) {
+    // Stream a request.
+    var opts = {
+        hostname: "localhost",
+        port: "3001",
+        path: "/aidl/" + serviceName + "/" + serviceClassName,
+        method: "GET",
+        agent: agent
+    };
+
+    debug("Performing HTTP request on /aidl/" + serviceName + "/" + serviceClassName);
+
+    var req = http.request(opts, function (r) {
+        var sz, raidlBuf, idx;
+
+        debug("Received HTTP request from /aidl/" + serviceName + "/" + serviceClassName);
+
+        if (r.statusCode === 200) {
+            sz = parseInt(r.headers["content-length"]);
+            raidlBuf = new Buffer(sz);
+
+            r.on("data", function (raidlChunk) {
+                raidlChunk.copy(raidlBuf, idx);
+                idx += raidlChunk.length;
+            });
+
+            r.on("end", function () {
+                if (options.success) options.success(raidlBuf);
+            });
+        }
+    }).on("error", function () {
+        if (options.error) options.error();
+    });
+
+    req.setTimeout(500,
+        function () {
+            if (options.error) options.error();
+        }
+    );
+
+    req.end();
 }
 
 app.head("/icon/:app", function (req, res) {
@@ -153,6 +203,8 @@ app.get("/icon/:app", function (req, res) {
 
     fetchIcon(req.params.app, {
         success: function (imgBuf) {
+            res.set("Content-length", imgBuf.length);
+
             res.write(imgBuf, function () {
                 res.end();
             });
@@ -287,6 +339,19 @@ app.get("/binder/services", function (req, res) {
     res.json(_.map(serviceManager.list(), function (serviceName) {
         return { name: serviceName };
     }));
+});
+
+app.get("/aidl/:serviceName/:serviceClassName", function (req, res) {
+    fetchAidl(req.params.serviceName, req.params.serviceClassName, {
+        success: function (raidlBuf) {
+            res.write(raidlBuf, function () {
+                res.end();
+            });
+        },
+        error: function () {
+            res.status(404).end();
+        }
+    });
 });
 
 // Static files.

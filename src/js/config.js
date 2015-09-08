@@ -45,7 +45,9 @@ requirejs.config({
         backbone: "backbone/backbone",
         jquery: "jquery/jquery",
         d3: "d3/d3",
-        socketio: "../socket.io/socket.io"
+        socketio: "../socket.io/socket.io",
+        handlebars: "handlebars/handlebars",
+        highlightjs: "highlightjs/highlight.pack"
     },
     packages: []
 });

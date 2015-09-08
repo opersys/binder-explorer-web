@@ -50,11 +50,14 @@ define(function (require) {
                         .attr("xlink:xlink:href", function (d) {
                             return "http://" + window.location.host + "/icon/" + d.get("process").get("cmdline")[0];
                         })
-                        .on("mouseover", function (data, i) {
+                        .on("mouseover", function (data) {
                             self._onItemOver(this, data);
                         })
-                        .on("mouseout", function (data, i) {
+                        .on("mouseout", function (data) {
                             self._onItemOut(this, data);
+                        })
+                        .on("click", function (data) {
+                            self._onItemClick(this, data);
                         });
                 },
                 error: function () {
@@ -97,6 +100,7 @@ define(function (require) {
 
             self._binderServices = opts.binderServices;
             self._binderProcesses = opts.binderProcesses;
+            self._serviceLinks = opts.serviceLinks;
             self._functions = opts.functions;
             self._tip = d3.tip().attr("class", "d3-tip").html(
                 function (d) {
@@ -127,12 +131,16 @@ define(function (require) {
                 d3.selectAll(".userlink.source-" + data.id).classed({"hover": false});
                 d3.selectAll(".userlink.target-" + data.id).classed({"hover": false});
 
-                self._tip.hide(data);
+                self.trigger("depends_view:onProcessOut", self._tip, data);
             }
             else if (data.collection === self._binderServices) {
                 self._moveTo(".link.target-" + data.id, ".linkBox.links");
                 d3.selectAll(".link.target-" + data.id).classed({"hover": false});
+
+                self.trigger("depends_view:onServiceOut", self._tip, data);
             }
+
+            self._tip.hide(data);
         },
 
         _onItemOver: function (target, data) {
@@ -148,38 +156,24 @@ define(function (require) {
                 d3.selectAll(".link.source-" + data.id).classed({"hover": true});
                 d3.selectAll(".userlink.source-" + data.id).classed({"hover": true});
                 d3.selectAll(".userlink.target-" + data.id).classed({"hover": true});
+
+                self.trigger("depends_view:onProcessOver", self._tip, data);
             }
             else if (data.collection === self._binderServices) {
                 self._moveTo(".link.target-" + data.id, ".linkBox.selectedLinks");
                 d3.selectAll(".link.target-" + data.id).classed({"hover": true});
+
+                self.trigger("depends_view:onServiceOver", self._tip, data);
             }
         },
 
-        /*
-         * Select a node on the screen.
-         */
-        select: function (type, id) {
-            if (type === "process") {
-                d3.select("#pid_" + id).select("circle").classed({"selected": true});
-                d3.selectAll(".link.source-" + id).classed({"selected": true});
-            }
-            else if (type === "service") {
-                d3.select("#service_" + id).select("circle").classed({"selected": true});
-                d3.selectAll(".link.target-" + id).classed({"selected": true});
-            }
-        },
+        _onItemClick: function (target, data) {
+            var self = this;
 
-        /*
-         * Unselect a node on the screen.
-         */
-        unselect: function (type, id) {
-            if (type === "process") {
-                d3.select("#pid_" + id).select("circle").classed({"selected": false});
-                d3.selectAll(".link.source-" + id).classed({"selected": false});
-            }
-            else if (type === "service") {
-                d3.select("#service_" + id).select("circle").classed({"selected": false});
-                d3.selectAll(".link.target-" + id).classed({"selected": false});
+            if (data.collection === self._binderProcesses) {
+                self.trigger("depends_view:onProcessClick", data);
+            } else if (data.collection === self._binderServices) {
+                self.trigger("depends_view:onServiceClick", data);
             }
         },
 
@@ -293,9 +287,6 @@ define(function (require) {
             // Update the services that still exists.
             upUserServices
                 .attr("transform", function (d) {
-                    if (sangle.length === 0)
-                        throw "Not enough angles when updating!";
-
                     d.angle = sangle.pop();
                     return "translate(40) rotate(" + d.angle + ",-40,0)";
                 });
@@ -334,7 +325,7 @@ define(function (require) {
                 .attr("x2", function (l) { return l.target.x; })
                 .attr("y2", function (l) { return l.target.y; });
 
-            // Add the missing links.                                                ho
+            // Add the missing links.
             newUserLinks.append("line")
                 .attr("class", function(d) {
                     return "userlink source-" + d.source.id + " target-" + d.target.id;
@@ -354,7 +345,7 @@ define(function (require) {
 
             links = self._linkBox.selectAll(".link");
             upLinks = links.data(function () {
-                    return self._linksByProcess.getLinks(function (a, b) {
+                    return self._serviceLinks.getLinks(function (a, b) {
                         return {
                             source: self._binderProcesses.get(a),
                             target: self._binderServices.get(b)
@@ -411,12 +402,8 @@ define(function (require) {
                     });
 
                 // Remove the links from that process.
-                self._linksByProcess.removeAll(d.get("pid"));
                 self._userLinks.removeAll(d.get("pid"));
             });
-
-            self._updateServiceLinks();
-            self._updateProcessLinks();
 
             self._force
                 .nodes(self._binderProcesses.models)
@@ -472,6 +459,9 @@ define(function (require) {
                 .on("mouseout", function (data, i) {
                     self._onItemOut(this, data);
                 })
+                .on("click", function (data) {
+                    self._onItemClick(this, data);
+                })
                 .attr("id", function (d) {
                     return d.get("process_" + d.get("id"));
                 })
@@ -487,23 +477,6 @@ define(function (require) {
                         }, 0);
                     });
                 });
-
-            var srefs = binderProcess.getServiceRefs();
-            var krefs = srefs.knownRefs;
-            var urefs = srefs.unknownRefs;
-
-            krefs.forEach(function (binderService) {
-                self._linksByProcess.addLink(binderProcess.get("pid"), binderService.get("name"));
-            });
-
-            urefs.forEach(function (uref) {
-                if (!self._pendingServiceLinks[uref]) {
-                    self._pendingServiceLinks[uref] = d3.set();
-                }
-                self._pendingServiceLinks[uref].add(binderProcess.get("pid"));
-            });
-
-            self._updateServiceLinks();
 
             self._force
                 .nodes(self._binderProcesses.models)
@@ -592,23 +565,10 @@ define(function (require) {
                 })
                 .on("mouseout", function (data, i) {
                     self._onItemOut(this, data);
+                })
+                .on("click", function (data) {
+                    self._onItemClick(this, data);
                 });
-
-            // Update the links
-            if (self._pendingServiceLinks[binderService.get("node")]) {
-                var pendingLinks = self._pendingServiceLinks[binderService.get("node")];
-
-                pendingLinks.forEach(function (binderProcessPid) {
-                    var binderProcess = self._binderProcesses.get(binderProcessPid);
-
-                    self._links.push({
-                        source: binderProcess,
-                        target: binderService
-                    });
-                });
-            }
-
-            self._updateServiceLinks();
         },
 
         /**
@@ -695,7 +655,6 @@ define(function (require) {
 
             self._svg = d3.select(self.box)
                 .append("svg")
-                .call(self._tip)
                 .attr("width", w)
                 .attr("height", h)
                 .attr("xmlns", "http://www.w3.org/2000/svg");
@@ -712,10 +671,15 @@ define(function (require) {
             // The nodes
             self._nodeBox = self._svg.append("g");
 
+            // The tooltips.
+            self._tooltipBox = self._svg.append("g");
+
+            // Initialize the tooltips.
+            self._tip = d3.tip().attr('class', 'd3-tip');
+            self._tooltipBox.call(self._tip);
+
             self._links = [];
             self._userLinks = new Linker.Undirected();
-            self._linksByProcess = new Linker.Undirected();
-            self._pendingServiceLinks = {};
 
             self._force = d3.layout.force()
                 .charge(function (d) {
@@ -749,6 +713,14 @@ define(function (require) {
             self._binderProcesses.on("serviceremoved", function () {
                 self._onRemovedProcessService.apply(self, arguments);
             });
+
+            self._serviceLinks.on("linkadded", function () {
+                self._updateServiceLinks.apply(self, arguments);
+            });
+
+            // Fire the events the services and processes that might be already in the collections.
+            self._onNewBinderService();
+            self._onNewBinderProcess();
         }
     });
 });

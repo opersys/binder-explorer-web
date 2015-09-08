@@ -50,7 +50,9 @@ define({
 	loaderOptions: {
 		paths: {
 			d3: "bower_components/d3/d3",
-            underscore: "bower_components/underscore/underscore"
+            underscore: "bower_components/underscore/underscore",
+			backbone: "bower_components/backbone/backbone",
+			jquery: "bower_components/jquery/dist/jquery"
 		}
 	},
 
