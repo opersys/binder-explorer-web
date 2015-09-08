@@ -82,11 +82,18 @@ define(function (require) {
                     return "translate(" + d.x + ","  + d.y +")";
                 });
 
-            d3.selectAll(".link")
+            /*d3.selectAll(".link")
                 .attr("x1", function (l) { return l.source.x; })
                 .attr("y1", function (l) { return l.source.y; })
                 .attr("x2", function (l) { return l.target.x; })
-                .attr("y2", function (l) { return l.target.y; });
+                .attr("y2", function (l) { return l.target.y; });**/
+
+            d3.selectAll(".link")
+                .attr("d", function (l) {
+                    if (l.source.x && l.source.y && l.target.x && l.target.y)
+                        return "M " + l.source.x + " " + l.source.y + " " +
+                            "C " + l.source.x + " " + l.source.y + " " + l.target.cx + " " + l.target.cy + " " + l.target.x + " " + l.target.y;
+                });
 
             d3.selectAll(".userlink")
                 .attr("x1", function (l) { return l.source.x; })
@@ -363,20 +370,34 @@ define(function (require) {
             goneLinks.remove();
 
             // Refresh all the existing links position.
-            links.attr("x1", function (l) { return l.source.x; })
+            /*links.attr("x1", function (l) { return l.source.x; })
                 .attr("y1", function (l) { return l.source.y; })
                 .attr("x2", function (l) { return l.target.x; })
-                .attr("y2", function (l) { return l.target.y; });
+                .attr("y2", function (l) { return l.target.y; });*/
+            links.attr("d", function (l) {
+                return "M " + l.source.x + " " + l.source.y + " " +
+                    "C " + l.source.x + " " + l.source.y + " " + l.target.cx + " " + l.target.cy + " " + l.target.x + " " + l.target.y;
+            });
 
             // Add the missing links.
-            newLinks.append("line")
+            /*newLinks.append("line")
                 .attr("class", function(d) {
                     return "link source-" + d.source.id + " target-" + d.target.id;
                 })
                 .attr("x1", function (l) { return l.source.x; })
                 .attr("y1", function (l) { return l.source.y; })
                 .attr("x2", function (l) { return l.target.x; })
-                .attr("y2", function (l) { return l.target.y; });
+                .attr("y2", function (l) { return l.target.y; });*/
+            newLinks.append("path")
+                .attr("class", function(d) {
+                    return "link source-" + d.source.id + " target-" + d.target.id;
+                })
+                .attr("fill", "transparent")
+                .attr("d", function (l) {
+                    if (l.source.x && l.source.y)
+                        return "M " + l.source.x + " " + l.source.y + " " +
+                            "C " + l.source.x + " " + l.source.y + " " + l.target.cx + " " + l.target.cy + " " + l.target.x + " " + l.target.y;
+                });
         },
 
         _onRemoveBinderProcess: function () {
@@ -502,6 +523,8 @@ define(function (require) {
                 d.y = self._circlePositions[d.i].y;
                 d.t = self._circlePositions[d.i].t;
                 d.a = self._circlePositions[d.i].a;
+                d.cx = self._circlePositions[d.i].cx;
+                d.cy = self._circlePositions[d.i].cy;
 
                 return "translate(" + d.x + ","  + d.y +")";
             })
@@ -528,6 +551,9 @@ define(function (require) {
                     d.y = self._circlePositions[d.i].y;
                     d.t = self._circlePositions[d.i].t;
                     d.a = self._circlePositions[d.i].a;
+                    d.cx = self._circlePositions[d.i].cx;
+                    d.cy = self._circlePositions[d.i].cy;
+
                     d.radius = 5;
                 })
                 .attr("transform", function (d) {
@@ -588,19 +614,46 @@ define(function (require) {
             var ymargin = 50;
             var svcPerSide;
 
+            // There are 6 segments on which the services can be placed.
+            // 3 on the left, 3 on the right. The segments on the right
+            // a reflexion of the segments of the left so we only need
+            // to calculate the position of the services on the left.
+
+            // Top left segment.
             self.s1 = {
-                x1: w / 3, y1: ymargin,
+                // Those coordinates are the top and bottom
+                // position of the top segment.
+                x1: w / 3,   y1: ymargin,
                 x2: xmargin, y2: h / 3,
+
+                // This is the function that will be used to calculate
+                // the X position of a service in the segment, as a function
+                // of Y.
                 g: function (y) {
                     var n = (xmargin - w / 3) / (h / 3 - ymargin);
                     var c = -1 * n * h / 3 + xmargin;
                     return n * y + c;
+                },
+
+                c: function (x, y) {
+                    return { x: x + 200, y: y };
                 }
             };
+
+            // Middle segment.
             self.s2 = {
                 x1: xmargin, y1: h / 3,
-                x2: xmargin, y2: 2 / 3 * h
+                x2: xmargin, y2: 2 / 3 * h,
+
+                // There is no g function here because the X position
+                // of a service on that segment constant.
+
+                c: function (x, y) {
+                    return { x: x + 200, y: y };
+                }
             };
+
+            // Bottom segment. See 's1' for documentation.
             self.s3 = {
                 x1: xmargin, y1: 2 / 3 * h,
                 x2: w / 3, y2: h - ymargin,
@@ -608,6 +661,10 @@ define(function (require) {
                     var n = (w / 3 - xmargin) / ((h - ymargin) - 2 / 3 * h);
                     var c = -1 * n * (h - ymargin) + w / 3;
                     return n * y + c;
+                },
+
+                c: function (x, y) {
+                    return {x: x + 200, y: y};
                 }
             };
 
@@ -619,21 +676,38 @@ define(function (require) {
             for (var i = 0; i < Math.ceil(n / 2 + 1); i++) {
                 var xleft, yleft = (segSz / svcPerSide * i) + ymargin;
                 var xright, yright = yleft;
+                var cxleft, cyleft, cxright, cyright;
+                var cp;
 
                 if (yleft < self.s1.y2) {
                     xleft = self.s1.g(yleft);
+
+                    cp = self.s1.c(xleft, yleft);
+                    cxleft = cp.x; cyleft = cp.y;
+
                 } else if (yleft > self.s3.y1) {
                     xleft = self.s3.g(yleft);
+
+                    cp = self.s3.c(xleft, yleft);
+                    cxleft = cp.x; cyleft = cp.y;
+
                 } else {
                     xleft = self.s2.x1;
+
+                    cp = self.s2.c(xleft, yleft);
+                    cxleft = cp.x; cyleft = cp.y;
                 }
                 xright = w - xleft;
+                cxright = w - cxleft;
+                cyright = cyleft;
 
                 cPos.push({
-                    x: xleft, y: yleft, t: "left"
+                    x: xleft, y: yleft, t: "left",
+                    cx: cxleft, cy: cyleft
                 });
                 cPos.push({
-                    x: xright, y: yright, t: "right"
+                    x: xright, y: yright, t: "right",
+                    cx: cxright, cy: cyright
                 });
             }
 

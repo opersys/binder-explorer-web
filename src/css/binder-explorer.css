@@ -53,19 +53,19 @@ line.userlink.hover {
 }
 
 /* Color of the hovered links */
-line.link.hover {
+path.link.hover {
     stroke: red;
     stroke-width: 3;
 }
 
 /* Color of the selected links */
-line.link.selected {
+path.link.selected {
     stroke: red;
     stroke-width: 5;
 }
 
 /* Color of neutral links */
-line.link {
+path.link {
     stroke: lightgray;
     stroke-width: 1;
 }
