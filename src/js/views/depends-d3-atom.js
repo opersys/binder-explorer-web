@@ -82,18 +82,8 @@ define(function (require) {
                     return "translate(" + d.x + ","  + d.y +")";
                 });
 
-            /*d3.selectAll(".link")
-                .attr("x1", function (l) { return l.source.x; })
-                .attr("y1", function (l) { return l.source.y; })
-                .attr("x2", function (l) { return l.target.x; })
-                .attr("y2", function (l) { return l.target.y; });**/
-
             d3.selectAll(".link")
-                .attr("d", function (l) {
-                    if (l.source.x && l.source.y && l.target.x && l.target.y)
-                        return "M " + l.source.x + " " + l.source.y + " " +
-                            "C " + l.source.x + " " + l.source.y + " " + l.target.cx + " " + l.target.cy + " " + l.target.x + " " + l.target.y;
-                });
+                .attr("d", function (l) { return self._linkPath.apply(self, [l]); });
 
             d3.selectAll(".userlink")
                 .attr("x1", function (l) { return l.source.x; })
@@ -250,7 +240,7 @@ define(function (require) {
                 }
             });
 
-            self._updateProcessLinks();
+            //self._updateProcessLinks();
             self._force.start();
         },
 
@@ -298,7 +288,7 @@ define(function (require) {
                     return "translate(40) rotate(" + d.angle + ",-40,0)";
                 });
 
-            self._updateProcessLinks();
+            //self._updateProcessLinks();
             self._force.start();
         },
 
@@ -343,6 +333,44 @@ define(function (require) {
                 .attr("y2", function (l) { return l.target.y; });
         },
 
+        _linkTmpl: _.template(
+            "M <%= sx %> <%= sy %> " + "" +
+            "C <%= sx %> <%= sy %> <%= tcx %> <%= tcy %> <%= tx %> <%= ty %>"),
+
+        _linkPath: function (l) {
+            var self = this;
+            var sx, sy, tx, ty, tcx, tcy;
+
+            if (l.source.x && l.source.y) {
+                sx = l.source.x;
+                sy = l.source.y;
+            } else {
+                sx = l.target.x;
+                sy = l.target.y;
+            }
+
+            if (l.target.x && l.target.y) {
+                tx = l.target.x;
+                ty = l.target.y;
+                tcx = l.target.cx;
+                tcy = l.target.cy;
+            } else {
+                tx = l.source.x;
+                ty = l.source.y;
+                tcx = l.source.x;
+                tcy = l.source.y;
+            }
+
+            return self._linkTmpl({
+                sx: sx,
+                sy: sy,
+                tx: tx,
+                ty: ty,
+                tcx: tcx,
+                tcy: tcy
+            });
+        },
+
         /**
          * Update the links between processes and services.
          */
@@ -370,34 +398,15 @@ define(function (require) {
             goneLinks.remove();
 
             // Refresh all the existing links position.
-            /*links.attr("x1", function (l) { return l.source.x; })
-                .attr("y1", function (l) { return l.source.y; })
-                .attr("x2", function (l) { return l.target.x; })
-                .attr("y2", function (l) { return l.target.y; });*/
-            links.attr("d", function (l) {
-                return "M " + l.source.x + " " + l.source.y + " " +
-                    "C " + l.source.x + " " + l.source.y + " " + l.target.cx + " " + l.target.cy + " " + l.target.x + " " + l.target.y;
-            });
+            links.attr("d", function (l) { return self._linkPath.apply(self, [l]); });
 
             // Add the missing links.
-            /*newLinks.append("line")
-                .attr("class", function(d) {
-                    return "link source-" + d.source.id + " target-" + d.target.id;
-                })
-                .attr("x1", function (l) { return l.source.x; })
-                .attr("y1", function (l) { return l.source.y; })
-                .attr("x2", function (l) { return l.target.x; })
-                .attr("y2", function (l) { return l.target.y; });*/
             newLinks.append("path")
                 .attr("class", function(d) {
                     return "link source-" + d.source.id + " target-" + d.target.id;
                 })
                 .attr("fill", "transparent")
-                .attr("d", function (l) {
-                    if (l.source.x && l.source.y)
-                        return "M " + l.source.x + " " + l.source.y + " " +
-                            "C " + l.source.x + " " + l.source.y + " " + l.target.cx + " " + l.target.cy + " " + l.target.x + " " + l.target.y;
-                });
+                .attr("d", function (l) { return self._linkPath.apply(self, [l]); });
         },
 
         _onRemoveBinderProcess: function () {
@@ -448,7 +457,15 @@ define(function (require) {
             newProcessNodes = processNodes.enter();
 
             newProcessNodeG = newProcessNodes.append("g")
+                .each(function (d) {
+                    d.x = (2 * (Math.random() - 0.5)) * self._radius + self._centerX;
+                    d.y = (2 * (Math.random() - 0.5)) * self._radius + self._centerY;
+                    d.radius = 8;
+                })
                 .classed({"node": true, "process": true})
+                .attr("transform", function (d) {
+                    return "translate(" + d.x + ","  + d.y +")";
+                })
                 .attr("id", function (d) {
                     if (d.collection === self._binderServices) {
                         return "service_" + d.id;
@@ -459,12 +476,6 @@ define(function (require) {
 
             newProcessNodeG
                 .append("text")
-                .attr("font-weight", "bold")
-                .each(function (d) {
-                    d.x = (2 * (Math.random() - 0.5)) * self._radius + self._centerX;
-                    d.y = (2 * (Math.random() - 0.5)) * self._radius + self._centerY;
-                    d.radius = 8;
-                })
                 .attr("transform", function (d) {
                     return "translate(" + d.radius + ", " + d.radius + ")";
                 })
@@ -595,6 +606,8 @@ define(function (require) {
                 .on("click", function (data) {
                     self._onItemClick(this, data);
                 });
+
+
         },
 
         /**
