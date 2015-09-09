@@ -781,15 +781,15 @@ define(function (require) {
                 .gravity(0)
                 .on("tick", function (e) { self._tick.apply(self, [e]); });
 
-            self._binderServices.on("add", function () {
+            self._serviceLinks.on("serviceadded", function () {
                 self._onNewBinderService.apply(self, arguments);
             });
 
-            self._binderProcesses.on("add", function () {
+            self._serviceLinks.on("processadded", function () {
                 self._onNewBinderProcess.apply(self, arguments);
             });
 
-            self._binderProcesses.on("remove", function () {
+            self._serviceLinks.on("processremoved", function () {
                 self._onRemoveBinderProcess.apply(self, arguments);
             });
 
@@ -802,6 +802,10 @@ define(function (require) {
             });
 
             self._serviceLinks.on("linkadded", function () {
+                self._updateServiceLinks.apply(self, arguments);
+            });
+
+            self._serviceLinks.on("linkremoved", function () {
                 self._updateServiceLinks.apply(self, arguments);
             });
 

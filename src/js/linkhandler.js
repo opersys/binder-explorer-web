@@ -101,13 +101,13 @@ define(function (require) {
     Undirected.prototype.removeAll = function (a) {
         var self = this;
 
+        self._linksFrom[a] = null;
+
         if (self._linksFrom[a]) {
             self._linksFrom[a].forEach(function (b) {
                 self.trigger("linkremoved", a, b);
             });
         }
-
-        self._linksFrom[a] = null;
     };
 
     return {

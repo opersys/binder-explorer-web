@@ -85,6 +85,11 @@ define(function (require) {
     ServiceLinkHandler.prototype._onNewService = function (service) {
         var self = this;
 
+        console.log("Service " + service.get("name") + " being added.");
+
+        // Notify the that a service was added.
+        self.trigger("serviceadded", service);
+
         // Update the links
         if (self._pendingServiceLinks[service.get("node")]) {
             var pendingLinks = self._pendingServiceLinks[service.get("node")];
@@ -92,6 +97,7 @@ define(function (require) {
             pendingLinks.forEach(function (processPid) {
                 var process = self._processes.get(processPid);
                 self._links.addLink(process.get("pid"), service.get("name"));
+                self.trigger("linkadded", process, service);
             });
         }
     };
@@ -102,8 +108,13 @@ define(function (require) {
         var krefs = srefs.knownRefs;
         var urefs = srefs.unknownRefs;
 
+        console.log("Process " + process.get("pid") + " being added.");
+
+        self.trigger("processadded", process);
+
         krefs.forEach(function (service) {
             self._links.addLink(process.get("pid"), service.get("name"));
+            self.trigger("linkadded", process, service);
         });
 
         urefs.forEach(function (uref) {
@@ -117,7 +128,10 @@ define(function (require) {
     ServiceLinkHandler.prototype._onRemoveProcess = function (process) {
         var self = this;
 
+        console.log("Process " + process.get("pid") + " being removed.");
+
         self._links.removeAll(process.get("pid"));
+        self.trigger("processremoved", process.get("pid"));
     };
 
     return ServiceLinkHandler;
