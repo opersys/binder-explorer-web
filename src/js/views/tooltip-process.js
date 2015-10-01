@@ -20,23 +20,26 @@ define(function (require) {
 
     return Backbone.View.extend({
 
-        initialize: function (tip, data) {
+        initialize: function (opts) {
             var self = this;
 
             self._tmplProcess = Templates["./src/templates/template-processes.hbs"];
-            self._tip = tip;
-            self._data = data;
+            self._tip = opts.tip;
+            self._process = opts.process;
 
             self._tip.html(function () {
                 return self._tmplProcess({
-                    data: data.attributes
+                    pid: self._process.get("pid"),
+                    name: self._process.getFriendlyName(),
+                    serviceCount: self._process.get("services").length,
+                    hasServices: self._process.get("services").length > 0
                 });
             });
         },
 
         render: function () {
             var self = this;
-            self._tip.show(self._data);
+            self._tip.show(self._process);
         },
 
         hide: function () {

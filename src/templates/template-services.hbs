@@ -1,6 +1,10 @@
-<div class="tip">
-    <div class="title">Service</div>
+<h4>{{name}}</h4>
+
+{{#if hasOutgoing}}
     <hr />
-    <div class="body">{{data.name}}</div>
-    <div class="footer">Click for details</div>
-</div>
+{{/if}}
+
+{{#if hasOutgoing}}
+    {{outgoingCount}} outgoing connection(s)
+{{/if}}
+

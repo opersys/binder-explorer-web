@@ -215,8 +215,10 @@ var readBinderProcFile = function (pid, successCallback, errorCallback) {
 // Calls for findServiceNodeId MUST be serialized and no other
 // Binder calls should be done within the same process.
 
-var findServiceNodeId = function (serviceName, resultCb) {
-    var c = cp.fork("binderUtils_child.js", [serviceName]);
+var findServiceNodeId = function (workingDir, serviceName, resultCb) {
+    var c = cp.fork("binderUtils_child.js", [serviceName], {
+        cwd: workingDir
+    });
 
     c.on("message", function (msg) {
         resultCb(parseInt(msg.node), msg.iface);

@@ -20,16 +20,24 @@ define(function (require) {
 
     return Backbone.View.extend({
 
-        initialize: function (tip, data) {
+        initialize: function (opts) {
             var self = this;
 
             self._tmplService = Templates["./src/templates/template-services.hbs"];
-            self._tip = tip;
-            self._data = data;
+            self._tip = opts.tip;
+            self._services = opts.services;
+            self._service = opts.service;
+            self._serviceLinks = opts.serviceLinks;
+
+            var outboundLinks = self._serviceLinks.getLinksFrom(self._service.get("name"), function (a, b) {
+                return b;
+            });
 
             self._tip.html(function () {
                 return self._tmplService({
-                    data: data.attributes
+                    name: self._service.get("name"),
+                    outgoingCount: outboundLinks.length,
+                    hasOutgoing: outboundLinks.length > 0
                 });
             });
         },

@@ -15,13 +15,14 @@
  */
 
 define(function (require) {
+    "use strict";
+
     var Backbone = require("backbone");
     var BinderServices = require("models/BinderServices");
     var Operation = require("models/Operation");
     var d3 = require("d3");
     var $ = require("jquery");
     var _ = require("underscore");
-    var Linker = require("linkhandler");
     d3.tip = require("d3-tip/index");
 
     return Backbone.View.extend({
@@ -92,23 +93,6 @@ define(function (require) {
                 .attr("y2", function (l) { return l.target.y; });
         },
 
-        initialize: function (opts) {
-            var self = this;
-
-            self._binderServices = opts.binderServices;
-            self._binderProcesses = opts.binderProcesses;
-            self._serviceLinks = opts.serviceLinks;
-            self._functions = opts.functions;
-            self._tip = d3.tip().attr("class", "d3-tip").html(
-                function (d) {
-                    return d.get("process").get("cmdline")[0];
-                }
-            );
-
-            self._circlePositions = [];
-            self._circlePositionIndex = 0;
-        },
-
         _moveTo: function (sourceSel, targetSel) {
             var el = $(sourceSel).remove();
             $(targetSel).append(el);
@@ -120,19 +104,19 @@ define(function (require) {
             d3.select(target).select("circle").classed({"hover": false});
 
             if (data.collection === self._binderProcesses) {
-                self._moveTo(".link.source-" + data.id, ".linkBox.links");
-                self._moveTo(".userlink.source-" + data.id, ".linkBox.userLinks");
-                self._moveTo(".userlink.target-" + data.id, ".linkBox.userLinks");
+                self._moveTo(".link.source-" + data.getDomId(), ".linkBox.links");
+                self._moveTo(".userlink.source-" + data.getDomId(), ".linkBox.userLinks");
+                self._moveTo(".userlink.target-" + data.getDomId(), ".linkBox.userLinks");
 
-                d3.selectAll(".link.source-" + data.id).classed({"hover": false});
-                d3.selectAll(".userlink.source-" + data.id).classed({"hover": false});
-                d3.selectAll(".userlink.target-" + data.id).classed({"hover": false});
+                d3.selectAll(".link.source-" + data.getDomId()).classed({"hover": false});
+                d3.selectAll(".userlink.source-" + data.getDomId()).classed({"hover": false});
+                d3.selectAll(".userlink.target-" + data.getDomId()).classed({"hover": false});
 
                 self.trigger("depends_view:onProcessOut", self._tip, data);
             }
             else if (data.collection === self._binderServices) {
-                self._moveTo(".link.target-" + data.id, ".linkBox.links");
-                d3.selectAll(".link.target-" + data.id).classed({"hover": false});
+                self._moveTo(".link.target-" + data.getDomId(), ".linkBox.links");
+                d3.selectAll(".link.target-" + data.getDomId()).classed({"hover": false});
 
                 self.trigger("depends_view:onServiceOut", self._tip, data);
             }
@@ -146,19 +130,19 @@ define(function (require) {
             d3.select(target).select("circle").classed({"hover": true});
 
             if (data.collection === self._binderProcesses) {
-                self._moveTo(".link.source-" + data.id, ".linkBox.selectedLinks");
-                self._moveTo(".userlink.source-" + data.id, ".linkBox.selectedLinks");
-                self._moveTo(".userlink.target-" + data.id, ".linkBox.selectedLinks");
+                self._moveTo(".link.source-" + data.getDomId(), ".linkBox.selectedLinks");
+                self._moveTo(".userlink.source-" + data.getDomId(), ".linkBox.selectedLinks");
+                self._moveTo(".userlink.target-" + data.getDomId(), ".linkBox.selectedLinks");
 
-                d3.selectAll(".link.source-" + data.id).classed({"hover": true});
-                d3.selectAll(".userlink.source-" + data.id).classed({"hover": true});
-                d3.selectAll(".userlink.target-" + data.id).classed({"hover": true});
+                d3.selectAll(".link.source-" + data.getDomId()).classed({"hover": true});
+                d3.selectAll(".userlink.source-" + data.getDomId()).classed({"hover": true});
+                d3.selectAll(".userlink.target-" + data.getDomId()).classed({"hover": true});
 
                 self.trigger("depends_view:onProcessOver", self._tip, data);
             }
             else if (data.collection === self._binderServices) {
-                self._moveTo(".link.target-" + data.id, ".linkBox.selectedLinks");
-                d3.selectAll(".link.target-" + data.id).classed({"hover": true});
+                self._moveTo(".link.target-" + data.getDomId(), ".linkBox.selectedLinks");
+                d3.selectAll(".link.target-" + data.getDomId()).classed({"hover": true});
 
                 self.trigger("depends_view:onServiceOver", self._tip, data);
             }
@@ -232,15 +216,6 @@ define(function (require) {
                     return "translate(40) rotate(" + d.angle + ",-40,0)";
                 });
 
-            userService.clients.forEach(function (pid) {
-                if (self._binderProcesses.get(pid) != null) {
-                    self._userLinks.addLink(userService.pid, pid);
-                } else {
-                    console.log("Target process " + pid + " unknown. Can't make user service link.");
-                }
-            });
-
-            //self._updateProcessLinks();
             self._force.start();
         },
 
@@ -298,10 +273,10 @@ define(function (require) {
 
             userLinks = self._userLinkBox.selectAll(".userlink");
             upUserLinks = userLinks.data(function () {
-                    return self._userLinks.getLinks(function (a, b) {
+                    return self._userServiceLinks.getLinks(function (from, to) {
                         return {
-                            source: self._binderProcesses.get(a),
-                            target: self._binderProcesses.get(b)
+                            source: self._binderProcesses.get(from),
+                            target: self._binderProcesses.get(to)
                         };
                     });
                 },
@@ -325,8 +300,9 @@ define(function (require) {
             // Add the missing links.
             newUserLinks.append("line")
                 .attr("class", function(d) {
-                    return "userlink source-" + d.source.id + " target-" + d.target.id;
+                    return "userlink source-" + d.source.getDomId() + " target-" + d.target.getDomId();
                 })
+                .attr("marker-end", "url(#arrowhead)")
                 .attr("x1", function (l) { return l.source.x; })
                 .attr("y1", function (l) { return l.source.y; })
                 .attr("x2", function (l) { return l.target.x; })
@@ -388,7 +364,7 @@ define(function (require) {
                     });
                 },
                 function (d) {
-                    return "source-" + d.source.id + " target-" + d.target.id;
+                    return "source-" + d.source.getDomId() + " target-" + d.target.getDomId();
                 }
             );
             newLinks = upLinks.enter();
@@ -403,7 +379,7 @@ define(function (require) {
             // Add the missing links.
             newLinks.append("path")
                 .attr("class", function(d) {
-                    return "link source-" + d.source.id + " target-" + d.target.id;
+                    return "link source-" + d.source.getDomId() + " target-" + d.target.getDomId();
                 })
                 .attr("fill", "transparent")
                 .attr("d", function (l) { return self._linkPath.apply(self, [l]); });
@@ -430,9 +406,6 @@ define(function (require) {
                     .each("end", function (d) {
                         d3.select("#pid_" + d.get("pid")).remove();
                     });
-
-                // Remove the links from that process.
-                self._userLinks.removeAll(d.get("pid"));
             });
 
             self._force
@@ -466,13 +439,7 @@ define(function (require) {
                 .attr("transform", function (d) {
                     return "translate(" + d.x + ","  + d.y +")";
                 })
-                .attr("id", function (d) {
-                    if (d.collection === self._binderServices) {
-                        return "service_" + d.id;
-                    }
-
-                    return "pid_" + d.id;
-                });
+                .attr("id", function (d) { return d.getDomId(); });
 
             newProcessNodeG
                 .append("text")
@@ -494,20 +461,15 @@ define(function (require) {
                 .on("click", function (data) {
                     self._onItemClick(this, data);
                 })
-                .attr("id", function (d) {
-                    return d.get("process_" + d.get("id"));
-                })
                 .attr("class", "node")
                 .attr("r", function (d) {
                     return d.radius;
                 })
                 .each(function (newBinderProcess) {
-                    newBinderProcess.get("process").on("change", function () {
-                        // Schedule a timer to fetch the icon for this process.
-                        setTimeout(function () {
-                            self._fetchIcon(newBinderProcess);
-                        }, 0);
-                    });
+                    // Schedule a timer to fetch the icon for this process.
+                    setTimeout(function () {
+                        self._fetchIcon(newBinderProcess);
+                    }, 0);
                 });
 
             self._force
@@ -594,9 +556,8 @@ define(function (require) {
 
             newServiceNodeG
                 .append("circle")
-                .attr("id", function (d) { return d.get("service_" + d.get("id")); })
                 .attr("r", function (d)  { return d.radius; })
-                .attr("id", function (d) { return "service_" + d.id;  })
+                .attr("id", function (d) { return d.getDomId(); })
                 .on("mouseover", function (data, i) {
                     self._onItemOver(this, data);
                 })
@@ -606,8 +567,6 @@ define(function (require) {
                 .on("click", function (data) {
                     self._onItemClick(this, data);
                 });
-
-
         },
 
         /**
@@ -746,6 +705,18 @@ define(function (require) {
                 .attr("height", h)
                 .attr("xmlns", "http://www.w3.org/2000/svg");
 
+            // http://logogin.blogspot.ca/2013/02/d3js-arrowhead-markers.html
+            self._svg.append("defs")
+                .append("marker")
+                .attr("id", "arrowhead")
+                .attr("refX", 6 + 3) /*must be smarter way to calculate shift*/
+                .attr("refY", 2)
+                .attr("markerWidth", 10)
+                .attr("markerHeight", 4)
+                .attr("orient", "auto")
+                .append("path")
+                .attr("d", "M 0,0 V 4 L6,2 Z");
+
             // Links between processes
             self._userLinkBox = self._svg.append("g").attr("class", "linkBox userLinks");
 
@@ -764,9 +735,6 @@ define(function (require) {
             // Initialize the tooltips.
             self._tip = d3.tip().attr('class', 'd3-tip');
             self._tooltipBox.call(self._tip);
-
-            self._links = [];
-            self._userLinks = new Linker.Undirected();
 
             self._force = d3.layout.force()
                 .charge(function (d) {
@@ -809,9 +777,36 @@ define(function (require) {
                 self._updateServiceLinks.apply(self, arguments);
             });
 
+            self._userServiceLinks.on("linkadded", function () {
+                self._updateProcessLinks.apply(self, arguments);
+            });
+
+            self._userServiceLinks.on("linkremoved", function () {
+                self._updateProcessLinks.apply(self, arguments);
+            });
+
             // Fire the events the services and processes that might be already in the collections.
             self._onNewBinderService();
             self._onNewBinderProcess();
+        },
+
+        initialize: function (opts) {
+            var self = this;
+
+            self._binderServices = opts.binderServices;
+            self._binderProcesses = opts.binderProcesses;
+            self._serviceLinks = opts.serviceLinks;
+            self._userServiceLinks = opts.userServiceLinks;
+
+            self._functions = opts.functions;
+            self._tip = d3.tip().attr("class", "d3-tip").html(
+                function (d) {
+                    return d.get("process").get("cmdline")[0];
+                }
+            );
+
+            self._circlePositions = [];
+            self._circlePositionIndex = 0;
         }
     });
 });

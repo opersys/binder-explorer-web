@@ -15,6 +15,8 @@
  */
 
 define(function (require) {
+    "use strict";
+
     var Backbone = require("backbone");
     var w2ui = require("w2ui");
     var io = require("socketio");
@@ -34,43 +36,61 @@ define(function (require) {
 
         getLayoutName: function () { return "layout"; },
 
-        _onServiceOver: function (tip, data) {
+        _onServiceOver: function (tip, service) {
             var self = this;
 
-            self._serviceTooltip = new ServiceTooltip(tip, data);
+            self._serviceTooltip = new ServiceTooltip({
+                tip: tip,
+                service: service,
+                services: self._binderServices,
+                serviceLinks: self._serviceLinks
+            });
             self._serviceTooltip.render();
         },
 
-        _onServiceOut: function (tip, data) {
+        _onServiceOut: function () {
             var self = this;
 
             self._serviceTooltip.hide();
         },
 
-        _onProcessOver: function (tip, data) {
+        _onProcessOver: function (tip, process) {
             var self = this;
 
-            self._serviceTooltip = new ProcessTooltip(tip, data);
+            self._serviceTooltip = new ProcessTooltip({
+                tip: tip,
+                process: process
+            });
             self._serviceTooltip.render();
         },
 
-        _onProcessOut: function (tip, data) {
+        _onProcessOut: function () {
             var self = this;
 
             self._serviceTooltip.hide();
         },
 
-        _onProcessClick: function (data) {
+        _onProcessClick: function (process) {
             var self = this;
 
-            self._processDialog = new ProcessDialog(data, self._serviceLinks);
+            self._processDialog = new ProcessDialog({
+                process: process,
+                processes: self._binderProcesses,
+                services: self._binderServices,
+                serviceLinks: self._serviceLinks
+            });
             self._processDialog.render();
         },
 
-        _onServiceClick: function (data) {
+        _onServiceClick: function (service) {
             var self = this;
 
-            self._serviceDialog = new ServiceDialog(data, self._serviceLinks);
+            self._serviceDialog = new ServiceDialog({
+                service: service,
+                processes: self._binderProcesses,
+                services: self._binderServices,
+                serviceLinks: self._serviceLinks
+            });
             self._serviceDialog.render();
         },
 
@@ -80,6 +100,7 @@ define(function (require) {
             self._binderServices = opts.binderServices;
             self._binderProcesses = opts.binderProcesses;
             self._serviceLinks = opts.serviceLinks;
+            self._userServiceLinks = opts.userServiceLinks;
             self._operations = opts.operations;
             self._procs = opts.procs;
 
@@ -87,6 +108,7 @@ define(function (require) {
                 binderServices: self._binderServices,
                 binderProcesses: self._binderProcesses,
                 serviceLinks: self._serviceLinks,
+                userServiceLinks: self._userServiceLinks,
                 functions: self._functions
             });
 

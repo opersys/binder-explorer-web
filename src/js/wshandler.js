@@ -17,6 +17,8 @@
 "use strict";
 
 define(function (require) {
+    var Process = require("models/Process");
+
     var WSHandler = function (sock, binderServices, binderProcesses) {
         var self = this;
 
@@ -62,6 +64,7 @@ define(function (require) {
     };
 
     WSHandler.prototype._onProcessAdded = function (binderProcess) {
+        binderProcess.process = new Process(binderProcess.process);
         this._binderProcesses.add(binderProcess);
     };
 
@@ -70,6 +73,7 @@ define(function (require) {
     };
 
     WSHandler.prototype._onService = function (binderService) {
+        binderService.process = new Process(binderService.process)
         this._binderServices.add(binderService);
     };
 

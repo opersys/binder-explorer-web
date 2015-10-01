@@ -23,10 +23,12 @@ define(function (require) {
     var Operations = require("models/Operations");
     var Operation = require("models/Operation");
     var ServiceLinkHandler = require("servicelinkhandler");
+    var UserServiceLinkHandler = require("userservicelinkhandler");
 
     var binderServices = new BinderServices();
     var binderProcesses = new BinderProcesses([], { binderServices: binderServices });
     var serviceLinks = new ServiceLinkHandler(binderServices, binderProcesses);
+    var userServiceLinks = new UserServiceLinkHandler(binderProcesses);
     var operations = new Operations();
 
     var mainView = new MainView({
@@ -34,6 +36,7 @@ define(function (require) {
         binderServices: binderServices,
         binderProcesses: binderProcesses,
         serviceLinks: serviceLinks,
+        userServiceLinks: userServiceLinks,
         operations: operations
     });
 

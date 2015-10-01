@@ -15,58 +15,68 @@
  */
 
 define(function (require) {
+    "use strict";
+
     var Backbone = require("backbone");
     var Templates = require("templates");
     var _ = require("underscore");
     var AidlDialog = require("views/dialog-aidl");
+    var ProcDialog = require("views/dialog-process");
 
     return Backbone.View.extend({
 
         _dialogId: _.uniqueId("dialog"),
 
-        initialize: function (data, serviceLinks) {
-            var self = this;
+        _setAidl: function (iface, aidl) {
+            var self = this, $aidlBtn;
 
-            self._tmplDialogService = Templates["./src/templates/template-services-dialog.hbs"];
-            self._data = data;
-            self._serviceLinks = serviceLinks;
+            $aidlBtn = $("#" + self._dialogId + " .ifaceLink");
+
+            $aidlBtn.prop("disabled", false);
+            $aidlBtn.click(function (event) {
+                new AidlDialog({
+                    serviceName: self._service.get("name"),
+                    aidl: aidl
+                }).render();
+            });
         },
 
-        _openAidlDialog: function (aidl) {
-            var self = this;
-            new AidlDialog(self._data.get("name"), aidl).render();
-        },
+        _setProc: function () {
+            var self = this, $procLink;
 
-        _setAidl: function (aidl) {
-            var self = this, $aidl;
+            $procLink = $("#" + self._dialogId + " .procLink");
 
-            $aidl = $("#" + self._dialogId + " .aidl");
-
-            if (aidl) {
-                $aidl.append(
-                    $("<a></a>")
-                        .attr("href", "#")
-                        .click(function () {
-                            self._openAidlDialog(aidl);
-                        })
-                        .text("AIDL interface"));
-            } else {
-                $aidl.text("Could not get the AIDL interface of this service");
-            }
+            $procLink.prop("disabled", false);
+            $procLink.click(function (event) {
+                new ProcDialog({
+                    process: self._processes.get($procLink.attr("data")),
+                    services: self._services,
+                    processes: self._processes,
+                    serviceLinks: self._serviceLinks
+                }).render();
+            });
         },
 
         _onDialogOpen: function (event) {
-            var self = this;
-            var iface = self._data.get("iface");
-            var name = self._data.get("name");
+            var self = this, $aidlBtn;
+            var iface = self._service.get("iface");
+            var name = self._service.get("name");
+            var pid = self._service.get("pid");
 
             event.onComplete = function () {
+                $aidlBtn = $("#" + self._dialogId + " .ifaceLink");
+                $aidlBtn.prop("disabled", true);
+
+                self._setProc();
+
                 $.ajax("http://" + window.location.host + "/aidl/" + name + "/" + iface, {
                     success: function (data) {
-                        self._setAidl(data);
+                        self._setAidl(iface, data);
                     },
                     error: function () {
-                        self._setAidl();
+                        $aidlBtn
+                            .prop("alt", "No AIDL found for service " + name)
+                            .attr("class", "text-danger");
                     }
                 });
             };
@@ -74,13 +84,20 @@ define(function (require) {
 
         render: function () {
             var self = this;
-            var iface = self._data.get("iface");
-            var name = self._data.get("name");
-            var inboundLinks, hasInboundLinks;
+            var iface = self._service.get("iface");
+            var name = self._service.get("name");
+            var inboundLinks, hasInboundLinks, inboundLinksGroups;
 
             inboundLinks = self._serviceLinks.getLinksFrom(name, function (a, b) {
-                return b;
+                return {
+                    pid: b,
+                    name: self._processes.get(b).getFriendlyName()
+                };
             });
+            inboundLinksGroups = _.groupBy(inboundLinks,
+                function (value, idx) {
+                    return Math.floor(idx / 2);
+                });
             hasInboundLinks = inboundLinks.length > 0;
 
             // This is to fix a kind of broken behavior of w2ui. The dialog callbacks run inside the
@@ -90,15 +107,28 @@ define(function (require) {
             w2popup.open({
                 title: "Service details",
                 body: self._tmplDialogService({
-                    serviceName: self._data.get("name"),
+                    serviceName: self._service.get("name"),
                     hasInboundLinks: hasInboundLinks,
-                    inboundLinks: inboundLinks,
-                    id: self._dialogId
+                    inboundLinksGroups: inboundLinksGroups,
+                    id: self._dialogId,
+                    pid: self._service.get("pid"),
+                    iface: iface,
+                    nodeid: self._service.get("node")
                 }),
                 onOpen: function (event) {
                     self._onDialogOpen.apply(window.__view, [event]);
                 }
             });
+        },
+
+        initialize: function (opts) {
+            var self = this;
+
+            self._tmplDialogService = Templates["./src/templates/template-services-dialog.hbs"];
+            self._service = opts.service;
+            self._processes = opts.processes;
+            self._services = opts.services;
+            self._serviceLinks = opts.serviceLinks;
         }
     });
 });

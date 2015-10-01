@@ -20,7 +20,12 @@ define(function (require) {
     return Backbone.Model.extend({
         idAttribute: "name",
 
-        initialize: function () {}
+        initialize: function () {},
+
+        getDomId: function () {
+            var self = this;
+            return "service_" + self.get("name").replace(/\./g, "_");
+        }
     });
 });
 

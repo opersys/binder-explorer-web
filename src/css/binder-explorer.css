@@ -14,8 +14,31 @@
  * limitations under the License.
  */
 
+/* Bootstrap override */
+.form-group {
+    margin-bottom: 1px;
+}
+
 body {
     margin: 0 0 0 0
+}
+
+.dialog .panel {
+    font-size: smaller;
+}
+
+.dialog .panel .table tr {
+    height: 41px;
+}
+
+.dialog .panel .table tr td:nth-child(1) {
+    width: 20%;
+    vertical-align: middle;
+}
+
+.dialog .panel .table tr td:nth-child(2) {
+    width: 80%;
+    vertical-align: middle;
 }
 
 g.node.service text {
@@ -27,7 +50,7 @@ g.node.process text {
     font-family: sans-serif;
 }
 
-cicle.service {
+circle.service {
     fill: blue;
 }
 
@@ -79,8 +102,6 @@ path.link {
     stroke-width: 1;
 }
 
-/* Color of the hovered nodes */
-
 /* Hack the appearance of the service list bar. */
 .w2ui-sidebar .w2ui-sidebar-div .w2ui-node {
     /* Couldn't figure out anything good. */
@@ -95,27 +116,6 @@ path.link {
     border-radius: 2px;
     pointer-events: none;
     z-index: 1000;
-}
-
-.dialog .title {
-    font-size: x-large;
-}
-
-.d3-tip .tip {
-}
-
-.d3-tip .tip .title {
-    font-size: smaller;
-}
-
-.d3-tip .tip .body {
-
-}
-
-.d3-tip .tip .footer {
-    text-align: right;
-    margin-top: 10px;
-    font-size: xx-small;
 }
 
 /* Creates a small triangle extender for the tooltip */

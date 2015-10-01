@@ -15,6 +15,8 @@
  */
 
 define(function (require) {
+    "use strict";
+
     var Backbone = require("backbone");
     var Templates = require("templates");
     var _ = require("underscore");
@@ -24,12 +26,12 @@ define(function (require) {
 
         _dialogId: _.uniqueId("dialog"),
 
-        initialize: function (name, aidl) {
+        initialize: function (opts) {
             var self = this;
 
             self._tmplDialogAidl = Templates["./src/templates/template-aidl-dialog.hbs"];
-            self._aidl = aidl;
-            self._name = name;
+            self._aidl = opts.aidl;
+            self._serviceName = opts.serviceName;
         },
 
         _onDialogOpen: function () {
@@ -55,18 +57,18 @@ define(function (require) {
             window.__view = self;
 
             w2popup.open({
-                title: "Service AIDL: " + self._name,
-                width: 500,
-                height: 300,
+                title: "Service AIDL: " + self._serviceName,
+                width: 700,
+                height: 500,
                 showMax: true,
                 body: self._tmplDialogAidl({
-                    serviceName: self._name,
+                    serviceName: self._serviceName,
                     id: self._dialogId
                 }),
                 onOpen: function (event) {
                     event.onComplete = function () {
                         self._onDialogOpen.apply(window.__view, [event]);
-                    }
+                    };
                 }
             });
         }

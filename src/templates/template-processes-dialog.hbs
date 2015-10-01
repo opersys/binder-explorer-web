@@ -1,10 +1,50 @@
-<div class="dialog">
-    <div class="title">{{name.data}}</div>
+<div class="dialog" id="{{id}}">
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h3>Process {{pid}}</h3>
+        </div>
 
-    <div class="body">
-        <h1>Inbound links</h1>
-        {{#each }}
-
-        {{/each}}
+        <table class="table table-stripped table-condensed">
+            <tr>
+                <td>PID</td>
+                <td>{{pid}}</td>
+            </tr>
+            <tr>
+                <td>Command line</td>
+                <td>{{cmdline}}</td>
+            </tr>
+        </table>
     </div>
+
+    {{#if hasOutboundLinks}}
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h4 class="panel-title">Outbound links</h4>
+            </div>
+            <div class="panel-body">
+                {{#each outboundLinks}}
+                    <div class="row">
+                        {{#each this}}
+                            <div class="col-md-3"><a href="#" class="serviceLink" data="{{this}}">{{this}}</a></div>
+                        {{/each}}
+                    </div>
+                {{/each}}
+            </div>
+        </div>
+    {{/if}}
+
+    {{#if hasUserServices}}
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h4 class="panel-title">User services</h4>
+            </div>
+            <div class="panel-body">
+                <ul>
+                    {{#each userServices}}
+                        <li>{{this.intent}}</li>
+                    {{/each}}
+                </ul>
+            </div>
+        </div>
+    {{/if}}
 </div>

@@ -29,6 +29,7 @@ var cache = require("js-cache");
 var debug = require("debug")("be");
 var SocketIO = require("socket.io");
 var domain = require("domain");
+var asock = require("abstract-socket");
 
 // Local modules
 var BinderUtils = require("./binderUtils.js");
@@ -39,13 +40,38 @@ var DataFeeder = require("./dataFeeder.js");
 var app = express();
 var server = http.createServer(app);
 var serviceManager = new Binder.ServiceManager();
-var defaultIcon = "public/images/default-icon.png";
 
-app.set("env", process.env.ENV || "development");
-app.set("port", process.env.PORT || 3200);
+var argv = require("yargs")
+    .options({
+        "p": {
+            alias: "port",
+            "default": "3000",
+            type: "number"
+        },
+        "e": {
+            alias: "environment",
+            "default": "development",
+            type: "string"
+        },
+        "s": {
+            alias: "socket",
+            type: "string"
+        },
+        "d": {
+            alias: "directory",
+            type: "string",
+            "default": process.cwd()
+        }
+    }).argv;
+
+app.set("env", argv.environment);
+app.set("port", argv.port);
+app.set("socket", argv.socket);
 app.set("views", path.join(__dirname, "views"));
+app.set("directory", argv.directory);
 app.set("json spaces", 2);
 
+var defaultIcon = path.join(app.get("directory"), "public/images/default-icon.png");
 var imgCache = new cache();
 
 var agent = new http.Agent();
@@ -215,6 +241,28 @@ app.get("/icon/:app", function (req, res) {
     });
 });
 
+// This is the "keepalive" socket. The app front end opens a LocalServerSocket on which
+// the web front end can connect. Once the web front end is connected, killing the front
+// end app will close the socket and this code ensure the backend will exit once that happens.
+if (app.get("socket")) {
+    var kasock;
+
+    try {
+        kasock = asock.connect('\0' + app.get("socket"), function () {
+            console.log("Connected to keepalive socket...");
+        });
+
+        kasock.on("end", function () {
+            console.log("Lost keepalive socket...");
+            process.exit(1);
+        });
+
+    } catch (ex) {
+        console.log("Connection to keepalive socket failed:", ex);
+        process.exit(1);
+    }
+}
+
 // Routes.
 app.get("/proc", function (req, res) {
     var pslook_domain = domain.create();
@@ -315,7 +363,7 @@ app.get("/binder/services/:serviceName", function (req, res) {
                 });
             });
 
-            BinderUtils.findServiceNodeId(req.params.serviceName, function (node, iface) {
+            BinderUtils.findServiceNodeId(app.get("directory"), req.params.serviceName, function (node, iface) {
                 var response = {};
 
                 if (!node && !iface)
@@ -358,7 +406,7 @@ app.get("/aidl/:serviceName/:serviceClassName", function (req, res) {
 app.use(exStatic(path.join(__dirname, "public"), { index: false }));
 
 var io = new SocketIO({ transports: ["websocket"] });
-var binderWatcher = new BinderWatcher();
+var binderWatcher = new BinderWatcher(app.get("directory"));
 
 io.on("connection", function (sock) {
     sock.dataFeeder = new DataFeeder(binderWatcher, sock);
@@ -373,3 +421,17 @@ io.on("connection", function (sock) {
 io.listen(server);
 binderWatcher.start();
 server.listen(app.get("port"), function() {});
+
+// Handle receiving the "quit" command from the UI.
+process.stdin.on("data", function (chunk) {
+    var cmd, cs;
+
+    cs = chunk.toString().split("\n")[0].trim().split(" ");
+    cmd = cs.shift().toLowerCase();
+
+    if (cmd === "quit")
+        process.exit();
+    else
+        console.log("Unknown command: " + cmd)
+});
+

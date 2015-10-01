@@ -14,18 +14,44 @@
  * limitations under the License.
  */
 
-"use strict";
-
 define(function (require) {
+    "use strict";
+
     var d3 = require("d3");
     var _ = require("underscore");
     var Backbone = require("backbone");
+
+    var Directed = function () {
+        var self = this;
+
+        self._linksFrom = {};
+        self._linksTo = {};
+        _.extend(this, Backbone.Events);
+    };
 
     var Undirected = function () {
         var self = this;
 
         self._linksFrom = {};
         _.extend(this, Backbone.Events);
+    };
+
+    Directed.prototype.getLinks = function (makeLinkCb) {
+        var self = this;
+        var links = [], linkVal;
+
+        if (!makeLinkCb) throw "callback missing";
+
+        _.keys(self._linksFrom).forEach(function (from) {
+            if (self._linksFrom[from] != null) {
+                self._linksFrom[from].forEach(function (to) {
+                    linkVal = makeLinkCb(from, to);
+                    if (linkVal) links.push(linkVal);
+                });
+            }
+        });
+
+        return links;
     };
 
     Undirected.prototype.getLinks = function (makeLinkCb) {
@@ -61,13 +87,36 @@ define(function (require) {
         return links;
     };
 
+    Directed.prototype.getLinksFrom = function (from, makeLinkCb) {
+        var self = this;
+        var links = [], linkVal;
+
+        if (!makeLinkCb) throw "callback missing";
+
+        if (self._linksFrom[from] != null) {
+            self._linksFrom[from].forEach(function (to) {
+
+                // Handles deleted links
+                if (self._linksFrom[to] === null) {
+                    self._linksFrom[to].remove(to);
+                    return;
+                }
+
+                linkVal = makeLinkCb(from, to);
+                if (linkVal) links.push(linkVal);
+            });
+        }
+
+        return links;
+    };
+
     Undirected.prototype.getLinksFrom = function (a, makeLinkCb) {
         var self = this;
         var links = [], linkVal;
 
         if (!makeLinkCb) throw "callback missing";
 
-        if (self._linksFrom[a] !== null) {
+        if (self._linksFrom[a]) {
             self._linksFrom[a].forEach(function (y) {
                 if (self._linksFrom[y] === null) {
                     self._linksFrom[a].remove(y);
@@ -80,6 +129,18 @@ define(function (require) {
         }
 
         return links;
+    };
+
+    Directed.prototype.addLink = function (from, to) {
+        var self = this;
+
+        if (!self._linksFrom[from]) {
+            self._linksFrom[from] = d3.set();
+        }
+
+        self._linksFrom[from].add(to);
+
+        self.trigger("linkadded", from, to);
     };
 
     Undirected.prototype.addLink = function (a, b) {
@@ -103,6 +164,7 @@ define(function (require) {
 
         self._linksFrom[a] = null;
 
+        // FIXME: Doesn't make sense!
         if (self._linksFrom[a]) {
             self._linksFrom[a].forEach(function (b) {
                 self.trigger("linkremoved", a, b);
@@ -110,7 +172,21 @@ define(function (require) {
         }
     };
 
+    Directed.prototype.removeFrom = function (from) {
+        var self = this;
+
+        self._linksFrom[from] = null;
+
+        // FIXME: Doesn't make sense!
+        if (self._linksFrom[from]) {
+            self._linksFrom[from].forEach(function (b) {
+                self.trigger("linkremoved", a, b);
+            });
+        }
+    };
+
     return {
-        Undirected: Undirected
+        Undirected: Undirected,
+        Directed: Directed
     };
 });

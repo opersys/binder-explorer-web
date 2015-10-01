@@ -26,10 +26,23 @@ define(function (require) {
             var self = this;
 
             self.set("services", []);
+        },
 
-            // Initialize a new Process object that we can fetch.
-            self.set("process", new Process({ pid: self.get("pid") }));
-            self.get("process").fetch();
+        getDomId: function () {
+            var self = this;
+            return "pid_" + self.get("pid");
+        },
+
+        // Try to get a friendly name for a process using its command line.
+        getFriendlyName: function () {
+            var self = this;
+
+            if (self.get("process").get("cmdline") !== null) {
+                return self.get("process").get("cmdline")[0];
+            }
+
+            // Fallback on just the PID.
+            return self.get("pid");
         },
 
         addUserService: function (userService) {

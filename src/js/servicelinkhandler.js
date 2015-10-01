@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-"use strict";
-
 /**
  * This class wraps the calculation of links between process and services.
  */
 define(function (require) {
+    "use strict";
+
     var d3 = require("d3");
     var Backbone = require("backbone");
     var Linker = require("linkhandler");

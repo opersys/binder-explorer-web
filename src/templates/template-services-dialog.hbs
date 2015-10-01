@@ -7,26 +7,43 @@
  hasInboundLinks: boolean that tells if there are any inboundLinks
 --}}
 <div class="dialog" id="{{id}}">
-    <div class="title">{{serviceName}}</div>
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h3>Service: {{serviceName}}</h3>
+        </div>
 
-    <div class="dataItem">
-        <span class="label">Host PID</span>
-        <span class="value">{{pid}}</span>
+        <table class="table table-stripped table-condensed">
+            <tr>
+                <td>PID</td>
+                <td><a data="{{pid}}" class="procLink" href="#">{{pid}}</a></td>
+            </tr>
+            <tr>
+                <td>Interface class</td>
+                <td><a data="{{iface}}" class="ifaceLink" href="#">{{iface}}</a></td>
+            </tr>
+            <tr>
+                <td>Binder Node ID</td>
+                <td>{{nodeid}}</td>
+            </tr>
+        </table>
     </div>
 
-    <div class="dataItem">
-        <span class="label">AIDL</span>
-        <span class="aidl  value"></span>
-    </div>
-
-{{#if hasInboundLinks}}
-    <div class="dataList">
-        <span class="title">Inbound links</span>
-        <ul>
-            {{#each inboundLinks}}
-                <li>{{this}}</li>
-            {{/each}}
-        </ul>
-    </div>
-{{/if}}
+    {{#if hasInboundLinks}}
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h4 class="panel-title">Inbound links</h4>
+            </div>
+            <div class="panel-body">
+                {{#each inboundLinksGroups}}
+                    <div class="row">
+                        {{#each this}}
+                            <div class="col-md-5">
+                                <a href="#" class="procLink" data="{{this}}">{{this.name}} ({{this.pid}})</a>
+                            </div>
+                        {{/each}}
+                    </div>
+                {{/each}}
+            </div>
+        </div>
+    {{/if}}
 </div>

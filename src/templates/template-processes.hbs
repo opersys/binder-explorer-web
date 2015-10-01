@@ -1,19 +1,9 @@
-<div class="tip">
-    <div class="title">Process</div>
+<h4>{{name}} <small>({{pid}})</small></h4>
+
+{{#if hasServices}}
     <hr />
+{{/if}}
 
-    <div class="body">
-        <table>
-            <tr>
-                <td><em>PID</em></td>
-                <td>{{data.pid}}</td>
-            </tr>
-            <tr>
-                <td><em>Services</em></td>
-                <td>{{data.services.length}}</td>
-            </tr>
-        </table>
-    </div>
-
-    <div class="footer">Click for details</div>
-</div>
+{{#if hasServices}}
+    {{serviceCount}} running service(s)
+{{/if}}
