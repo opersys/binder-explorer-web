@@ -167,12 +167,11 @@ define(function (require) {
             var processG, processGServ,
                 newUserServices, upUserServices, obServ,
                 angle, cangle, sangle;
-            var iserv; // List of interesting services.
             var servs; // All services for this process.
 
             processG = d3.select("#pid_" + userService.pid);
             processGServ = processG.selectAll(".pid_" + userService.pid + "_services");
-            obServ = processG.selectAll(".pid_" + userService.pid + " .service_orbit");
+            obServ = processG.selectAll(".service_orbit");
             servs = self._binderProcesses.get(userService.pid).get("services");
 
             angle = 270 / servs.length + 1;
