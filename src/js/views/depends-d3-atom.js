@@ -383,6 +383,10 @@ define(function (require) {
                             serviceName = a;
                         }
 
+                        // This is a sanity check that valides that the PID and the service
+                        // name we found can be found inside their respective collection. This
+                        // has trapped a few bug.
+
                         if (!self._binderProcesses.get(pid))
                             throw "PID " + a + " not found in processes";
                         if (!self._binderServices.get(serviceName))

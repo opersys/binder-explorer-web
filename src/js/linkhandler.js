@@ -160,26 +160,13 @@ define(function (require) {
     };
 
     Undirected.prototype.removeAll = function (a) {
-        var self = this;
+        var self = this, oldLinks;
 
-        self._linksFrom[a] = null;
-
-        // FIXME: Doesn't make sense!
         if (self._linksFrom[a]) {
-            self._linksFrom[a].forEach(function (b) {
-                self.trigger("linkremoved", a, b);
-            });
-        }
-    };
+            oldLinks = self._linksFrom[a];
+            self._linksFrom[a] = null;
 
-    Directed.prototype.removeFrom = function (from) {
-        var self = this;
-
-        self._linksFrom[from] = null;
-
-        // FIXME: Doesn't make sense!
-        if (self._linksFrom[from]) {
-            self._linksFrom[from].forEach(function (b) {
+            oldLinks.forEach(function (b) {
                 self.trigger("linkremoved", a, b);
             });
         }
