@@ -61,6 +61,7 @@ module.exports = function (grunt) {
                     mkdist("_bin"),
                     mkdist("public", "css"),
                     mkdist("public", "js"),
+                    mkdist("public", "fonts"),
                     "out"
                 ]
             }
@@ -106,7 +107,8 @@ module.exports = function (grunt) {
                 { expand: true, cwd: "src/html", src: ["*"], dest: mkdist("public") },
                 { expand: true, cwd: "src/jslib", src: ["*"], dest: mkdist("public", "js") },
                 { expand: true, cwd: "src/js", src: ["**"], dest: mkdist("public", "js") },
-                { expand: true, cwd: "src/", src: ["*"], dest: mkdist() }
+                { expand: true, cwd: "src/", src: ["*"], dest: mkdist() },
+                { expand: true, cwd: "fonts/", src: ["*"], dest: mkdist("public/fonts") }
             ]
         };
 
