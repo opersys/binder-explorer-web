@@ -25,6 +25,7 @@ define(function (require) {
     var DependsView = require("views/depends-d3-atom");
     var ServiceTooltip = require("views/tooltip-service");
     var ProcessTooltip = require("views/tooltip-process");
+    var UserServiceTooltip = require("views/tooltip-userservice");
     var ServiceDialog = require("views/dialog-service");
     var ProcessDialog = require("views/dialog-process");
 
@@ -33,8 +34,24 @@ define(function (require) {
         _dependsView: null,
         _serviceTooltip: null,
         _processTooltip: null,
+        _userServiceTooltip: null,
 
         getLayoutName: function () { return "layout"; },
+
+        _onUserServiceOver: function (tip, userService) {
+            var self = this;
+
+            self._userServiceTooltip = new UserServiceTooltip({
+                tip: tip,
+                userService: userService
+            });
+            self._userServiceTooltip.render();
+        },
+
+        _onUserServiceOut: function () {
+            var self = this;
+            self._userServiceTooltip.hide();
+        },
 
         _onServiceOver: function (tip, service) {
             var self = this;
@@ -131,6 +148,14 @@ define(function (require) {
                         }
                     };
                 }
+            });
+
+            self._dependsView.on("depends_view:onUserServiceOver", function () {
+                self._onUserServiceOver.apply(self, arguments);
+            });
+
+            self._dependsView.on("depends_view:onUserServiceOut", function () {
+                self._onUserServiceOut.apply(self, arguments);
             });
 
             self._dependsView.on("depends_view:onServiceOver", function () {

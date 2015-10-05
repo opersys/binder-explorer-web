@@ -119,9 +119,9 @@ define(function (require) {
                 d3.selectAll(".link.target-" + data.getDomId()).classed({"hover": false});
 
                 self.trigger("depends_view:onServiceOut", self._tip, data);
+            } else {
+                self.trigger("depends_view:onUserServiceOut", self._tip, data);
             }
-
-            self._tip.hide(data);
         },
 
         _onItemOver: function (target, data) {
@@ -145,6 +145,8 @@ define(function (require) {
                 d3.selectAll(".link.target-" + data.getDomId()).classed({"hover": true});
 
                 self.trigger("depends_view:onServiceOver", self._tip, data);
+            } else {
+                self.trigger("depends_view:onUserServiceOver", self._tip, data);
             }
         },
 
@@ -198,7 +200,16 @@ define(function (require) {
                 .attr("class", "pid_" + userService.pid + "_services")
                 .append("circle")
                 .attr("class", "service")
-                .attr("r", "5");
+                .attr("r", "5")
+                .on("mouseover", function (data, i) {
+                    self._onItemOver(this, data);
+                })
+                .on("mouseout", function (data, i) {
+                    self._onItemOut(this, data);
+                })
+                .on("click", function (data) {
+                    self._onItemClick(this, data);
+                });
 
             upUserServices
                 .attr("transform", function (d) {
@@ -362,7 +373,7 @@ define(function (require) {
                             serviceName = a;
                         }
 
-                        // This is a sanity check that valides that the PID and the service
+                        // This is a sanity check that validates that the PID and the service
                         // name we found can be found inside their respective collection. This
                         // has trapped a few bug.
 

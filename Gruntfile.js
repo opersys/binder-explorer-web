@@ -95,7 +95,8 @@ module.exports = function (grunt) {
             "./src/templates/template-services.hbs",
             "./src/templates/template-services-dialog.hbs",
             "./src/templates/template-processes.hbs",
-            "./src/templates/template-processes-dialog.hbs"
+            "./src/templates/template-processes-dialog.hbs",
+            "./src/templates/template-userservices.hbs"
         ];
 
         copy_config["dist_" + arch] = {
