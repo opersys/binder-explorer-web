@@ -157,7 +157,7 @@ BinderWatcher.prototype._scanBinderProcesses = function () {
         }
 
         if (addedlist.length > 0 || removedlist.length > 0) {
-            debug("Scanning binder processes: " + addedlist.length + " added, " + removedlist.length + " removed");
+            debug("Done scanning binder processes: " + addedlist.length + " added, " + removedlist.length + " removed");
         }
 
         async.parallel([
@@ -165,17 +165,20 @@ BinderWatcher.prototype._scanBinderProcesses = function () {
             function (parallelCallback) {
                 async.each(addedlist,
                     function (added, eachCallback) {
+                        debug("added: " + added);
                         self._readBinderProcessData(added,
                             function (process) {
                                 self.emit("onProcessAdded", process);
                                 eachCallback();
                             },
                             function (err) {
-                                debug("Error reading process data for " + added + ": " + err);
+                                debug("Error reading Binder process data for " + added + ": " + err);
                                 eachCallback();
-                            });
+                            }
+                        );
                     },
                     function () {
+                        debug("Done handling added process list.");
                         parallelCallback();
                     }
                 );
@@ -189,6 +192,7 @@ BinderWatcher.prototype._scanBinderProcesses = function () {
                         eachCallback();
                     },
                     function () {
+                        debug("Done handling removed process list.");
                         parallelCallback();
                     }
                 );
@@ -214,8 +218,7 @@ BinderWatcher.prototype._readBinderProcessData = function (binderProcId, success
                     if (binderProcs[binderProcId]) {
                         self._binderProcesses[binderProcId] = binderProcs[binderProcId];
                         next();
-                    }
-                    else {
+                    } else {
                         next("Unknown binder process");
                     }
                 },
@@ -226,20 +229,29 @@ BinderWatcher.prototype._readBinderProcessData = function (binderProcId, success
         },
 
         function (next) {
-            pslook.read(binderProcId, function (err, procData) {
-                if (err)
-                    next("Failed to read process data");
 
-                self._binderProcesses[binderProcId].process = procData;
-                next();
-            }, {fields: pslook.PID | pslook.CWD | pslook.CMD | pslook.ENV});
+            /*
+             * PSLOOK 0.10 ERROR HANDLE IS PATHOLOGICAL. For each option put in fields, the error
+             * callback risks be called many times.
+             */
+
+            pslook.read(binderProcId, function (err, procData) {
+                if (err) {
+                    next("Failed to read process data from /proc");
+                } else {
+                    self._binderProcesses[binderProcId].process = procData;
+                    next();
+                }
+            }, {fields: pslook.CMD });
         }
     ],
         // Error handler.
         function (err) {
             if (err && errorCallback) {
-                self._binderProcesses[binderProcId] = null;
-                errorCallback("Failed to get process information: " + err);
+                delete self._binderProcesses[binderProcId];
+                errorCallback("Failed to get Binder process information: " + err);
+            } else {
+                successCallback(self._binderProcesses[binderProcId]);
             }
         }
     );

@@ -274,6 +274,11 @@ define(function (require) {
             userLinks = self._userLinkBox.selectAll(".userlink");
             upUserLinks = userLinks.data(function () {
                     return self._userServiceLinks.getLinks(function (from, to) {
+                        if (!self._binderProcesses.get(from))
+                            throw "PID " + from + " not found in processes";
+                        if (!self._binderProcesses.get(to))
+                            throw "PID " + to + " not found in processes";
+
                         return {
                             source: self._binderProcesses.get(from),
                             target: self._binderProcesses.get(to)
@@ -357,9 +362,35 @@ define(function (require) {
             links = self._linkBox.selectAll(".link");
             upLinks = links.data(function () {
                     return self._serviceLinks.getLinks(function (a, b) {
+                        var serviceName, pid;
+
+                        // At this place, because we use an undirected link class,
+                        // both "a" and "b" can interchangeably be PID or service names.
+                        // Because of difference in hashtable implementation, or some race
+                        // condition I don't understand, Firefox will sometimes return
+                        // service names as 'a', while Chrome never does. This handles the
+                        // possibility that we received a service name instead of a PID as
+                        // the first argument. I thought about other more elegant ways
+                        // to fix this mixup but they all required changes to core elements
+                        // of the code that would have ended up much more complicated than
+                        // this hack.
+
+                        if (parseInt(a)) {
+                            pid = a;
+                            serviceName = b;
+                        } else {
+                            pid = b;
+                            serviceName = a;
+                        }
+
+                        if (!self._binderProcesses.get(pid))
+                            throw "PID " + a + " not found in processes";
+                        if (!self._binderServices.get(serviceName))
+                            throw "Service " + b + " not found in services";
+
                         return {
-                            source: self._binderProcesses.get(a),
-                            target: self._binderServices.get(b)
+                            source: self._binderProcesses.get(pid),
+                            target: self._binderServices.get(serviceName)
                         };
                     });
                 },
