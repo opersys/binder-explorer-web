@@ -80,8 +80,12 @@ define(function (require) {
         var self = this;
 
         userService.clients.forEach(function (pid) {
-            if (self._processes.get(pid) != null) {
-                self._links.addLink(userService.pid, pid);
+            if (self._processes.get(pid) !== null) {
+
+                // Filter out self-referential service, which can be rendered.
+                if (userService.pid !== pid) {
+                    self._links.addLink(userService.pid, pid);
+                }
             } else {
                 console.log("Target process " + pid + " unknown. Can't make user service link.");
             }

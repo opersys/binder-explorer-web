@@ -175,24 +175,15 @@ define(function (require) {
             obServ = processG.selectAll(".pid_" + userService.pid + " .service_orbit");
             servs = self._binderProcesses.get(userService.pid).get("services");
 
-            // Don't render self-referential services that have no other client
-            // but their own parent process.
-            iserv = _.reject(servs, function (s) {
-                return s.clients.length === 1 && s.clients[0] === s.pid;
-            });
-
-            // If iserv is empty, it means there is no exposed service to render.
-            if (iserv.length === 0) return;
-
-            angle = 270 / iserv.length + 1;
+            angle = 270 / servs.length + 1;
             cangle = 45;
             sangle = [];
 
-            for (var i = 0; i < iserv.length; i++) {
+            for (var i = 0; i < servs.length; i++) {
                 sangle.push(cangle += angle);
             }
 
-            upUserServices = processGServ.data(iserv, function (d) { return d.intent; });
+            upUserServices = processGServ.data(servs, function (d) { return d.intent; });
             newUserServices = upUserServices.enter();
 
             // Add the orbit if there is not one already.
@@ -232,25 +223,15 @@ define(function (require) {
             processGServ = processG.selectAll(".pid_" + userService.pid + "_services");
             servs = self._binderProcesses.get(userService.pid).get("services");
 
-            // Don't render self-referential services that have no other client
-            // but their own parent process.
-
-            iserv = _.reject(servs, function (s) {
-                return s.clients.length === 1 && s.clients[0] === s.pid;
-            });
-
-            // If iserv is empty, it means there is no exposed service to render.
-            if (iserv.length === 0) return;
-
-            angle = 270 / iserv.length + 1;
+            angle = 270 / servs.length + 1;
             cangle = 45;
             sangle = [];
 
-            for (var i = 0; i < iserv.length; i++) {
+            for (var i = 0; i < servs.length; i++) {
                 sangle.push(cangle += angle);
             }
 
-            upUserServices = processGServ.data(iserv, function (d) { return d.intent; });
+            upUserServices = processGServ.data(servs, function (d) { return d.intent; });
 
             // Clear the services that aren't there anymore.
             goneUserServices = upUserServices.exit();
@@ -263,7 +244,6 @@ define(function (require) {
                     return "translate(40) rotate(" + d.angle + ",-40,0)";
                 });
 
-            //self._updateProcessLinks();
             self._force.start();
         },
 
