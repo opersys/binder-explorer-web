@@ -732,11 +732,11 @@ define(function (require) {
                 .append("path")
                 .attr("d", "M 0,0 V 4 L6,2 Z");
 
-            // Links between processes
-            self._userLinkBox = self._svg.append("g").attr("class", "linkBox userLinks");
-
             // Links between process and services.
             self._linkBox = self._svg.append("g").attr("class", "linkBox links");
+
+            // Links between processes
+            self._userLinkBox = self._svg.append("g").attr("class", "linkBox userLinks");
 
             // This will contain the selected links, which are moved on top of the other.
             self._selectedLinks = self._svg.append("g").attr("class", "linkBox selectedLinks");

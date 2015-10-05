@@ -55,7 +55,7 @@ circle.service {
 }
 
 circle.service_orbit {
-    stroke: LightSkyBlue;
+    stroke: #0041C2;
     stroke-width: 1;
     fill: none;
 }
@@ -74,8 +74,8 @@ circle.node.selected {
 
 /* Color of links between user processes */
 line.userlink {
-    stroke: LightSkyBlue;
-    stroke-width: 1;
+    stroke: Blue;
+    stroke-width: 2;
 }
 
 /* Color of links between processes */
@@ -88,18 +88,21 @@ line.userlink.hover {
 path.link.hover {
     stroke: red;
     stroke-width: 3;
+    stroke-opacity: 1;
 }
 
 /* Color of the selected links */
 path.link.selected {
     stroke: red;
     stroke-width: 5;
+    stroke-opacity: 1;
 }
 
 /* Color of neutral links */
 path.link {
-    stroke: lightgray;
-    stroke-width: 1;
+    stroke: #bbbbbb;
+    stroke-width: 2;
+    stroke-opacity: 0.6;
 }
 
 /* Hack the appearance of the service list bar. */
