@@ -247,20 +247,24 @@ app.get("/icon/:app", function (req, res) {
 if (app.get("socket")) {
     var kasock;
 
-    try {
-        kasock = asock.connect('\0' + app.get("socket"), function () {
-            console.log("Connected to keepalive socket...");
-        });
+    // This retry call will actually never ends. We only make it end when we receive an error.
+    async.retry({times: 2, interval: 200},
+        function (retryCallback) {
+            kasock = asock.connect('\0' + app.get("socket"), function () {
+            });
 
-        kasock.on("end", function () {
-            console.log("Lost keepalive socket...");
-            process.exit(1);
-        });
+            kasock.on("end", function () {
+                retryCallback("Lost keepalive socket...");
+            });
 
-    } catch (ex) {
-        console.log("Connection to keepalive socket failed:", ex);
-        process.exit(1);
-    }
+            kasock.on("error", function (err) {
+                retryCallback("Error with keepalive socket: " + err);
+            });
+        },
+        function (err) {
+            console.log("Giving up on keepalive socket, bailing out: " + err);
+        }
+    );
 }
 
 // Routes.

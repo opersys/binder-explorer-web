@@ -106,6 +106,8 @@ define(function (require) {
 
             w2popup.open({
                 title: "Service details",
+                width: 600,
+                height: 500,
                 body: self._tmplDialogService({
                     serviceName: self._service.get("name"),
                     hasInboundLinks: hasInboundLinks,
