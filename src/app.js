@@ -408,6 +408,7 @@ app.get("/aidl/:serviceName/:serviceClassName", function (req, res) {
 
 // Static files.
 app.use(exStatic(path.join(__dirname, "public"), { index: false }));
+app.get("/", function (req, res) { res.redirect("/index.html"); });
 
 var io = new SocketIO({ transports: ["websocket"] });
 var binderWatcher = new BinderWatcher(app.get("directory"));
