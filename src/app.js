@@ -82,12 +82,14 @@ fs.stat(defaultIcon, function (err, defStat) {
     var defIn = fs.createReadStream(defaultIcon);
 
     defIn.on("readable", function () {
-        var defBuf = defIn.read(defStat.size);
+        var defBuf = this.read(defStat.size);
 
         if (defBuf != null)
             imgCache.set("default", defBuf);
-        else
-            throw "Failed to read default icon";
+    });
+
+    defIn.on("error", function () {
+        throw "Failed to read default icon";
     });
 });
 
