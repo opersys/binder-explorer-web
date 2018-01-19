@@ -41,7 +41,13 @@ var BinderWatcher = function (workingDir) {
     this._userProcesses = {};
 
     this._serviceManager = new Binder.ServiceManager();
-    this._activityService = this._serviceManager.getService("activity");
+
+    try {
+        this._activityService = this._serviceManager.getService("activity");
+    } catch (e) {
+        // No activity service? Then this code will never work.
+        this._activityService = null;
+    }
 };
 
 util.inherits(BinderWatcher, events.EventEmitter);
@@ -63,6 +69,8 @@ BinderWatcher.prototype.start = function() {
 BinderWatcher.prototype._scanProcessServices = function () {
     var self = this;
     var dumpOut;
+
+    if (!this._activityService) return;
 
     dumpOut = self._activityService.dump("services");
     self._serviceListParser.parseOutput(dumpOut);
