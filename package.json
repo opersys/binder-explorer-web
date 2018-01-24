@@ -10,20 +10,13 @@
   "prebuilts": {
     "modules": {
       "ia32": [
-        "https://github.com/opersys/jsbinder/releases/download/0.3.1/jsbinder-0.3.1_ia32.tar.gz",
-        "https://github.com/fdgonthier/node-abstractsocket/releases/download/v1.1.0/abstract-socket-1.1.0_ia32.tar.gz"
+        "https://github.com/fdgonthier/node-abstractsocket/releases/download/v2.0.0/abstract-socket-2.0.0_ia32.tar.gz"
       ],
       "arm": [
-        "https://github.com/opersys/jsbinder/releases/download/0.3.1/jsbinder-0.3.1_arm.tar.gz",
-        "https://github.com/fdgonthier/node-abstractsocket/releases/download/v1.1.0/abstract-socket-1.1.0_arm.tar.gz"
-      ]
-    },
-    "misc": {
-      "ia32": [
-        "https://github.com/opersys/node/releases/download/v0.10.33/node_ia32.tar.gz"
+        "https://github.com/fdgonthier/node-abstractsocket/releases/download/v2.0.0/abstract-socket-2.0.0_arm.tar.gz"
       ],
-      "arm": [
-        "https://github.com/opersys/node/releases/download/v0.10.33/node_arm.tar.gz"
+      "arm64": [
+        "https://github.com/fdgonthier/node-abstractsocket/releases/download/v2.0.0/abstract-socket-2.0.0_arm64.tar.gz"
       ]
     }
   },
@@ -34,6 +27,7 @@
     "express-busboy": "*",
     "guid": "*",
     "js-cache": "1.0.2",
+    "linebyline": "0.0.9",
     "lstream": "*",
     "morgan": "*",
     "pslook": "*",
@@ -41,19 +35,19 @@
     "serve-static": "*",
     "socket.io": "1.3.5",
     "underscore": "*",
-    "linebyline": "0.0.9",
     "yargs": "3.9.1"
   },
   "devDependencies": {
     "async": "1.0.0",
     "chai": "^3.2.0",
     "download": "4.1.2",
-    "grunt": "~0.4.2",
+    "got": "^8.0.2",
+    "grunt": "^1.0.1",
     "grunt-auto-install": "*",
     "grunt-babel": "^5.0.3",
-    "grunt-bower": "*",
-    "grunt-bower-concat": "*",
-    "grunt-bower-requirejs": "*",
+    "grunt-bower": "^0.21.4",
+    "grunt-bower-concat": "^1.0.0",
+    "grunt-bower-requirejs": "^2.0.0",
     "grunt-chmod": "*",
     "grunt-contrib-compress": "*",
     "grunt-contrib-copy": "*",
@@ -61,6 +55,8 @@
     "grunt-exec": "*",
     "grunt-mkdir": "*",
     "handlebars": "3.0.3",
-    "intern": "^3.0.0"
+    "intern": "^3.0.0",
+    "md5-file": "^2.0.4",
+    "tarball-extract": "0.0.6"
   }
 }

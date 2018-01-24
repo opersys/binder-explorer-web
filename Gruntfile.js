@@ -69,9 +69,6 @@ module.exports = function (grunt) {
                     "jquery": {
                         keepExpandedHierarchy: false
                     },
-                    "sigma.js": {
-                        files: [ "sigma.min.js", "plugins/*"]
-                    }
                 }
             }
         };
@@ -95,6 +92,7 @@ module.exports = function (grunt) {
         copy_config["dist_" + arch] = {
             files: [
                 { src: ["package.json"], dest: mkdist("/") },
+                { src: ["bower.json"], dest: mkdist("/") },
                 { expand: true, cwd: "bin", src: ["**"], dest: mkdist("_bin") },
                 { expand: true, cwd: "images", src: ["**"], dest: mkdist("public", "images") },
                 { expand: true, cwd: "src/css", src: ["*"], dest: mkdist("public", "css") },
@@ -145,8 +143,8 @@ module.exports = function (grunt) {
             "mkdir:dist_" + arch,
             "bower:dist_" + arch,
             "copy:dist_" + arch,
-            "prebuilts:dist_" + arch,
             "exec:dist_npm_" + arch,
+            "prebuilts:dist_" + arch,
             "handlebars:dist_" + arch
         ]);
 
@@ -232,4 +230,3 @@ module.exports = function (grunt) {
 //    grunt.registerTask("nougat", ["dist_arm"]);
 //    grunt.registerTask("pack", ["oreo_arm64", "nougat_arm", "nougat_ia32"]);
 };
-

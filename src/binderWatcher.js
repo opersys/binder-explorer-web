@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2018 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@ BinderWatcher.prototype._scanBinderServices = function () {
 
             async.eachLimit(diff, 10, function (added, callback) {
                 self._readBinderServiceData(added, binderProcs, binderProcsByNode,
-                    function (service) {
+                                            function (service) {
                         self.emit("onServiceData", service);
                         callback();
                     },
@@ -295,30 +295,36 @@ BinderWatcher.prototype._readBinderServiceData = function (serviceName, binderPr
         async.waterfall([
             function (next) {
                 BinderUtils.findServiceNodeId(self._workingDir, serviceName, function (node, iface) {
-                    self._binderServices[serviceName] = {
-                        name: serviceName,
-                        iface: iface,
-                        node: node,
-                        pid: binderProcsByNode[node].pid
-                    };
+                    if (binderProcsByNode[node] == null)
+                        next(null, null);
+                    else {
+                        self._binderServices[serviceName] = {
+                            name: serviceName,
+                            iface: iface,
+                            node: node,
+                            pid: binderProcsByNode[node].pid
+                        };
 
-                    if (!serviceName) {
-                        debug("No service name for interface " + iface);
+                        if (!serviceName) {
+                            debug("No service name for interface " + iface);
+                        }
+
+                        //successCallback(self._binderServices[serviceName]);
+                        next(null, binderProcsByNode[node].pid);
                     }
-
-                    //successCallback(self._binderServices[serviceName]);
-                    next(null, binderProcsByNode[node].pid);
                 });
             },
 
             function (pid, next) {
-                pslook.read(pid, function (err, procData) {
-                    if (err)
-                        next("Failed to read process data");
+                if (pid) {
+                    pslook.read(pid, function (err, procData) {
+                        if (err)
+                            next("Failed to read process data");
 
-                    self._binderServices[serviceName].process = procData;
-                    next();
-                }, {fields: pslook.PID | pslook.CWD | pslook.CMD | pslook.ENV });
+                        self._binderServices[serviceName].process = procData;
+                        next();
+                    }, {fields: pslook.PID | pslook.CWD | pslook.CMD | pslook.ENV });
+                }
             }
         ],
 

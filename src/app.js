@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2018 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -408,8 +408,16 @@ app.get("/aidl/:serviceName/:serviceClassName", function (req, res) {
     });
 });
 
+function setCustomHeaders(res, path) {
+    if (new RegExp(".css$").test(path))
+        res.setHeader("Content-type", "text/css")
+}
+
 // Static files.
-app.use(exStatic(path.join(__dirname, "public"), { index: false }));
+app.use(exStatic(path.join(__dirname, "public"), {
+    index: false,
+    setHeaders: setCustomHeaders
+}));
 app.get("/", function (req, res) { res.redirect("/index.html"); });
 
 var io = new SocketIO({ transports: ["websocket"] });
@@ -441,4 +449,3 @@ process.stdin.on("data", function (chunk) {
     else
         console.log("Unknown command: " + cmd)
 });
-
