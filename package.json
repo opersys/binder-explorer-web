@@ -9,6 +9,9 @@
   },
   "prebuilts": {
     "modules": {
+      "x86_64": [
+        "https://github.com/fdgonthier/node-abstractsocket/releases/download/v2.0.0/abstract-socket-2.0.0_x86_64.tar.gz"
+      ],
       "ia32": [
         "https://github.com/fdgonthier/node-abstractsocket/releases/download/v2.0.0/abstract-socket-2.0.0_ia32.tar.gz"
       ],

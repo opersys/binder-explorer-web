@@ -39,7 +39,7 @@ module.exports = function (grunt) {
         pkg: grunt.file.readJSON("package.json")
     });
 
-    _.each(["arm", "arm64", "ia32"], function (arch) {
+    _.each(["arm", "arm64", "ia32", "x86_64"], function (arch) {
 
         var mkdist = function (arch) {
             return function () {
@@ -191,14 +191,14 @@ module.exports = function (grunt) {
         });
     }
 
-    grunt.registerTask("jsbinder_oreo", "Generate an Oreo build", function () {
+    grunt.registerTask("jsbinder_oreo", "Fetches JSBinder for Oreo", function (arch) {
         var done = this.async();
 
-        if (!fs.existsSync("dist_arm64/node_modules/jsbinder")) {
+        if (!fs.existsSync("dist_" + arch + "/node_modules/jsbinder")) {
             downloadAndExtract(
-                "https://github.com/opersys/jsbinder/releases/download/0.4.0-Oreo/jsbinder-0.4.0_oreo_arm64.tar.gz",
-                "dist_arm64/node_modules",
-                "dist_arm64",
+                "https://github.com/opersys/jsbinder/releases/download/0.4.0-Oreo/jsbinder-0.4.0_oreo_" + arch + ".tar.gz",
+                "dist_" + arch + "/node_modules",
+                "dist_" + arch,
                 done);
         }
     });
@@ -224,9 +224,8 @@ module.exports = function (grunt) {
     grunt.loadNpmTasks("grunt-contrib-handlebars");
     grunt.loadNpmTasks("grunt-chmod");
 
-    grunt.registerTask("oreo", ["dist_arm64", "jsbinder_oreo"]);
-
-//    grunt.registerTask("oreo", ["dist_arm64"]);
-//    grunt.registerTask("nougat", ["dist_arm"]);
-//    grunt.registerTask("pack", ["oreo_arm64", "nougat_arm", "nougat_ia32"]);
+    grunt.registerTask("x86_64", ["dist_x86_64", "jsbinder_oreo:x86_64"]);
+    grunt.registerTask("ia32", ["dist_ia32"]);
+    grunt.registerTask("arm", ["dist_arm"]);
+    grunt.registerTask("arm64", ["dist_arm64", "jsbinder_oreo:arm64"]);
 };

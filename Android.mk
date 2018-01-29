@@ -9,6 +9,6 @@ LOCAL_MODULE_PATH := $(TARGET_OUT)/bin
 
 LOCAL_POST_INSTALL_CMD := \
 	mkdir -p $(TARGET_OUT)/Osys/BE; \
-	cp -af $(LOCAL_PATH)/dist_arm64/* $(TARGET_OUT)/Osys/BE
+	cp -af $(LOCAL_PATH)/dist_$(TARGET_ARCH)/* $(TARGET_OUT)/Osys/BE
 include $(BUILD_PREBUILT)
 
