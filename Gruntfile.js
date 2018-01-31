@@ -55,7 +55,7 @@ module.exports = function (grunt) {
                     mkdist("public", "css"),
                     mkdist("public", "js"),
                     mkdist("public", "fonts"),
-                    "out"
+                    "prebuilt_" + arch
                 ]
             }
         };
@@ -128,16 +128,9 @@ module.exports = function (grunt) {
         prebuilts_config["dist_" + arch] = _.map(grunt.config("pkg.prebuilts.modules." + arch), function (v) {
             return {
                 url: v,
-                tagDest: mkdist(),
-                dest: mkdist("node_modules")
+                arch: arch
             };
-        }).concat(_.map(grunt.config("pkg.prebuilts.misc." + arch), function (v) {
-                return {
-                    url: v,
-                    tagDest: mkdist(),
-                    dest: mkdist()
-                };
-            }));
+        });
 
         grunt.registerTask("dist_" + arch, [
             "mkdir:dist_" + arch,
@@ -163,31 +156,29 @@ module.exports = function (grunt) {
     grunt.config("compress", compress_config);
     grunt.config("handlebars", handlebars_config);
 
-    function downloadAndExtract(dataUrl, dataDest, tagDest, doneCb) {
-        var tag = path.join(tagDest, ".dltag." + path.basename(dataUrl));
+    function extract(arch, dlfile, doneCb) {
+        var exdest = path.join("dist_" + arch, "node_modules");
+        grunt.log.writeln("Extracting: " + dlfile);
+        tarball.extractTarball(dlfile, exdest, doneCb);
+    }
 
-        fs.exists(tag, function (exists) {
+    function downloadAndExtract(arch, dataUrl, doneCb) {
+        var url = new URL(dataUrl);
+        var dlfile = path.basename(url.pathname);
+        var dldest = path.join("prebuilt_" + arch , dlfile);
+
+        fs.exists(dldest, function (exists) {
             if (!exists) {
-                var url = new URL(dataUrl);
-                var dlfile = path.basename(url.pathname);
-                var dldest = path.join(dataDest, dlfile);
                 var dlstream = got.stream(url.toString());
 
-                fs.writeFile(tag, "", function () {
-                    dlstream.on("end", function () {
-                        tarball.extractTarball(dldest, dataDest, function (err) {
-                            if (err) throw err;
-                            grunt.log.writeln("Done extracting: " + dldest);
-                            fs.unlinkSync(dldest);
-                            doneCb();
-                        });
-                    });
-                    dlstream.pipe(fs.createWriteStream(dldest));
+                grunt.log.writeln("Downloading: " + dataUrl);
+
+                dlstream.on("end", function () {
+                    extract(arch, dldest, doneCb);
                 });
-            } else {
-                grunt.log.writeln("Not downloading " + dataUrl + ": already done");
-                doneCb();
+                dlstream.pipe(fs.createWriteStream(dldest));
             }
+            else extract(arch, dldest, doneCb);
         });
     }
 
@@ -196,9 +187,8 @@ module.exports = function (grunt) {
 
         if (!fs.existsSync("dist_" + arch + "/node_modules/jsbinder")) {
             downloadAndExtract(
+                arch,
                 "https://github.com/opersys/jsbinder/releases/download/0.4.0-Oreo/jsbinder-0.4.0_oreo_" + arch + ".tar.gz",
-                "dist_" + arch + "/node_modules",
-                "dist_" + arch,
                 done);
         }
     });
@@ -209,9 +199,8 @@ module.exports = function (grunt) {
 
         async.each(data,
             function (dldata, callback) {
-                downloadAndExtract(dldata.url, dldata.dest, dldata.tagDest, callback);
-            },
-            done
+                downloadAndExtract(dldata.arch, dldata.url, callback);
+            }, done
         );
     });
 
