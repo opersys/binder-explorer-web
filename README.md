@@ -42,11 +42,11 @@ To remove the application from the build:
 
 Remove the launcher
 
-$ rm out/target/product/[product name]/system/bin/OsysBE
+> $ rm out/target/product/[product name]/system/bin/OsysBE
 
 At this point, if you run mm again, the application will be reinstalled on the device. This is how to reinstall the app if you've done modifications.
 
-$ rm -rf out/target/product/[product name]/system/Osys/BE
+> $ rm -rf out/target/product/[product name]/system/Osys/BE
 
 # Contributors
 
