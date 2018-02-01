@@ -1,46 +1,52 @@
-# Binder Explorer
+# How to run this project
 
-Go to, https://github.com/opersys/binder-explorer-web/releases, download both *com.opersys.otlauncher.be_0.1.apk* and _otlauncher_. The package include support for both the ARM and 32 bit x86 architectures but be conscious that running Binder Explorer in the ARM emulator will be *very* slow. We will be working on improving Binder Explorer performance later.
+This project has been designed to be integrated inside and AOSP tree. It has been tested on the HiKey 620 board (arm64) and on the x86_64 emulator. It should work with minimal modifications on the ia32 emulator on other arm boards supporting Android.
 
-## How to try Binder Explorer
+Before following those steps, you need to use the https://github.com/fdgonthier/Aosp-Node-Prebuilts project so that a Node.js binary is present on your target. Remote Interface requires Node.js and will not work without it.
 
-Install the .apk package on your device.
+You first also need a working version of Node.js. https://nodejs.org/en/download/package-manager/
 
-<pre>
-$ adb install com.opersys.otlauncher.be_0.1.apk
-</pre>
+Install the required packages:
 
-Copy _otlauncher_ somewhere on your device. _/data/local/tmp_ is a good idea.
+> $ npm install
 
-<pre>
-$ adb push otlauncher /data/local/tmp
-</pre>
+Install the required client side package (you might have to install the `bower` npm package)
 
-If you are using the emulator, you should forward port 3000 to your hosting computer. It might also be necessary for normal devices if you can't access the device by its IP address.
+> $ bower install
 
-<pre>
-$ adb forward tcp:3000 tcp:3000
-</pre>
+Assemble the package to install on the device:
 
-The next steps needs to be executed on the device as the _shell_ user. 
+> $ grunt [x86_64|arm64]
 
-<pre>
-$ adb shell
-</pre>
+Run 'mm' to insert the application on the device
 
-Make _otlauncher_ executable: 
+> $ mm
 
-<pre>
-root@generic_x86:/ # chmod 0755 ./otlauncher
-</pre>
+# Running
 
-Execute _otlauncher_. Use the _-d_ flag to get more information about the startup.
+The application can be run from the ADB shell but you need to forward ports first:
 
-<pre>
-root@generic_x86:/ # ./otlauncher
-</pre>
+> $ adb forward tcp:3000 tcp:3000
 
-The Binder Explorer should then be browsable on http://localhost:3000/index.html if you forwarded ports using _adb forward_ or on your device IP, on port 3000, if you have not.
+You can then run the application from within the ADB shell:
+
+> $ OsysBE
+
+You can access the app on localhost:3000
+
+The application will output plenty of debugging statements when running.
+
+# Cleaning / Reinstalling
+
+To remove the application from the build:
+
+Remove the launcher
+
+$ rm out/target/product/[product name]/system/bin/OsysBE
+
+At this point, if you run mm again, the application will be reinstalled on the device. This is how to reinstall the app if you've done modifications.
+
+$ rm -rf out/target/product/[product name]/system/Osys/BE
 
 # Contributors
 
