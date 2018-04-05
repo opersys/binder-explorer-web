@@ -6,6 +6,12 @@ Before following those steps, you need to use the https://github.com/fdgonthier/
 
 You first also need a working version of Node.js. https://nodejs.org/en/download/package-manager/
 
+If you do not want to setup a Node.js environment, you can download the prebuilt package for the most current version. This package is larger but include all the dependencies required for Binder Explorer to work. The package is available in the Releases section of the GitHub repository. If you use that package, skip the following steps to up until running "mm".
+
+If you want to build from source, checkout the project in your AOSP tree.
+
+> git checkout 
+
 Install the required packages:
 
 > $ npm install
