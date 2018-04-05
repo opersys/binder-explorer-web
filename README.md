@@ -2,7 +2,7 @@
 
 This project has been designed to be integrated inside and AOSP tree. It has been tested on the HiKey 620 board (arm64) and on the x86_64 emulator. It should work with minimal modifications on the ia32 emulator on other arm boards supporting Android.
 
-Before following those steps, you need to use the https://github.com/fdgonthier/Aosp-Node-Prebuilts project so that a Node.js binary is present on your target. Remote Interface requires Node.js and will not work without it.
+Before following those steps, you need to use the https://github.com/fdgonthier/Aosp-Node-Prebuilts project so that a Node.js binary is present on your target. Binder Explorer requires Node.js and will not work without it.
 
 If you do not want to setup a Node.js environment, you can download the prebuilt package for the most current version. This package is larger but include all the dependencies required for Binder Explorer to work. The package is available in the Releases section of the GitHub repository. If you use that package, skip the following steps to up until running "mm".
 
