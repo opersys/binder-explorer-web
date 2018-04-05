@@ -4,9 +4,9 @@ This project has been designed to be integrated inside and AOSP tree. It has bee
 
 Before following those steps, you need to use the https://github.com/fdgonthier/Aosp-Node-Prebuilts project so that a Node.js binary is present on your target. Remote Interface requires Node.js and will not work without it.
 
-You first also need a working version of Node.js. https://nodejs.org/en/download/package-manager/
-
 If you do not want to setup a Node.js environment, you can download the prebuilt package for the most current version. This package is larger but include all the dependencies required for Binder Explorer to work. The package is available in the Releases section of the GitHub repository. If you use that package, skip the following steps to up until running "mm".
+
+If you do not want or can't use the prebuilt package, you need to setup a working Node.js environment. See https://nodejs.org/en/download/package-manager/ to install it on your computer
 
 If you want to build from source, checkout the project in your AOSP tree.
 
