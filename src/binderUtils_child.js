@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2018 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ var _ = require("underscore");
 var Binder = require("jsbinder");
 var BinderUtils = require("./binderUtils.js");
 var debug = require("debug")("be:utils:child");
+var util = require("util");
 
 var sm = new Binder.ServiceManager();
 var knownNodes = [];
@@ -26,7 +27,7 @@ var serviceObj = sm.getService(process.argv[2]);
 
 BinderUtils.readBinderStateFile(
     function (stateData) {
-        var currentNodes = [], newNode, iface;
+        var currentNodes = [], newNodes, newNode, iface;
         var procData = stateData[process.pid];
 
         for (var ref in procData.refs) {
@@ -35,28 +36,31 @@ BinderUtils.readBinderStateFile(
             }
         }
 
-        newNode = _.difference(currentNodes, knownNodes);
+        newNodes = [].concat(_.difference(currentNodes, knownNodes));
+        
+        while (newNodes.length > 0) {
+            newNode = newNodes.pop();
+            knownNodes = currentNodes;
 
-        // If this happens, it means there was an issue with the was
-        // findServiceNodeId was used.
-        if (newNode.length > 1)
-            throw "Too much differences";
+            if (serviceObj) {
+                iface = serviceObj.getInterface();
 
-        newNode = newNode.pop();
-        knownNodes = currentNodes;
-        if (serviceObj) {
-            iface = serviceObj.getInterface();
+                /**
+                 * FIXME: Node 2 is assumed to be the service manager, for the purpose
+                 */
+                if (newNode == 2) continue;
 
-            if (process.send)
-                process.send({ node: newNode, iface: iface });
-            else
-                console.log("NODE: " + newNode + " IFACE: " + iface);
-        }
-        else {
-            if (process.send)
-                process.send({ node: null, iface: null });
-            else
-                console.log("Error communicating with binder.");
+                if (process.send)
+                    process.send({ node: newNode, iface: iface });
+                else
+                    console.log("NODE: " + newNode + " IFACE: " + iface);
+            }
+            else {
+                if (process.send)
+                    process.send({ node: null, iface: null });
+                else
+                    console.log("Error communicating with binder.");
+            }
         }
     },
 
@@ -66,4 +70,3 @@ BinderUtils.readBinderStateFile(
         else
             console.log("Error opening the binder process file: ", err);
     });
-
