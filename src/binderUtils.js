@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-var Binder = require("jsbinder");
-var Queue = require("queue");
-var Guid = require("guid");
-var fs = require("fs");
-var path = require("path");
-var cp = require("child_process");
-var _ = require("underscore");
-var debug = require("debug")("be:utils");
-var linebyline = require("linebyline");
+const fs = require("fs");
+const path = require("path");
+const cp = require("child_process");
+const _ = require("underscore");
+const debug = require("debug")("be:utils");
+const ChildProcess = require("child_process");
+const process = require("process");
+const readline = require("readline");
+
+const ServiceManager = require("./ServiceManager.js");
 
 var requests = {};
-var sm = new Binder.ServiceManager();
+var sm = new ServiceManager.ServiceManager();
 
 var readAllBinderProcFiles = function (resultCb) {
     var results = {},
@@ -35,23 +36,23 @@ var readAllBinderProcFiles = function (resultCb) {
         resultCb(results);
     });
 
-    fs.readdir("/sys/kernel/debug/binder/proc", function (err, files) {
+    fs.readdir("/dev/binderfs/binder_logs/proc", function (err, files) {
         for (var i in files) {
             (function (file, results) {
                 queue.push(function (queueCb) {
-                    var procFile = path.join("/sys/kernel/debug/binder/proc", file);
+                    var procFile = path.join("/dev/binderfs/binder_logs/proc", file);
 
                     fs.exists(procFile, function (exists) {
                         if (exists) {
                             readBinderProcFile(file,
-                                function (procData) {
-                                    results[file] = procData;
-                                    queueCb();
-                                },
-                                // Ignore read errors there. Just handle the missing process later on.
-                                function (err) { });
+                                               function (procData) {
+                                                   results[file] = procData;
+                                                   queueCb();
+                                               },
+                                               // Ignore read errors there. Just handle the missing process later on.
+                                               function (err) { });
                         } else {
-                            console.log("Process file " + file + " does not exists.")
+                            console.log("Process file " + file + " does not exists.");
                         }
                     });
                 });
@@ -63,10 +64,10 @@ var readAllBinderProcFiles = function (resultCb) {
 };
 
 var readBinderStateFile = function (successCallback, errorCallback) {
-    var stateFile = "/sys/kernel/debug/binder/state",
+    var stateFile = "/dev/binderfs/binder_logs/state",
         stateData = {},
         currentProc = null,
-        liner = new linebyline(stateFile);
+        liner = readline.createInterface(fs.createReadStream(stateFile));
 
     liner.on("line", function (line) {
         var dataLine = _.filter(line.trim().split(" "), function (item) {
@@ -126,17 +127,17 @@ var readBinderStateFile = function (successCallback, errorCallback) {
 
             stateData[currentProc].nodes.push(nodeInfo);
         }
-    }
-    ).on("end", function () {
-            return successCallback(stateData);
-        }
-    );
+    });
+
+    liner.on("close", function () {
+        return successCallback(stateData);
+    });
 };
 
 var readBinderProcFile = function (pid, successCallback, errorCallback) {
     var procFile, procData;
 
-    procFile = path.join("/sys/kernel/debug/binder/proc", pid);
+    procFile = path.join("/dev/binderfs/binder_logs/proc", pid);
     procData = {};
 
     procData.pid = pid;
@@ -215,13 +216,50 @@ var readBinderProcFile = function (pid, successCallback, errorCallback) {
 // Calls for findServiceNodeId MUST be serialized and no other
 // Binder calls should be done within the same process.
 
-var findServiceNodeId = function (workingDir, serviceName, resultCb) {
-    var c = cp.fork("binderUtils_child.js", [serviceName], {
-        cwd: workingDir
-    });
+var findServiceNodeId = (serviceName, resultCb) => {
+    let knownNodes = [];
+    let self = this;
 
-    c.on("message", function (msg) {
-        resultCb(parseInt(msg.node), msg.iface);
+    let sg = sm.grabService(serviceName);
+
+    sg.on("statusChange", (newStatus) => {
+        if (newStatus == ServiceManager.GRAB_OK) {
+            readBinderStateFile(
+                function (stateData) {
+                    var currentNodes = [], newNodes, newNode, iface;
+                    var procData = stateData[sg.pid];
+
+                    for (var ref in procData.refs) {
+                        if (procData.refs[ref].node != 1) {
+                            currentNodes.push(procData.refs[ref].node);
+                        }
+                    }
+
+                    newNodes = [].concat(_.difference(currentNodes, knownNodes));
+                    sg.release();                    
+                    
+                    while (newNodes.length > 0) {
+                        newNode = newNodes.pop();
+                        knownNodes = currentNodes;
+
+                        iface = sm.getService(serviceName).interface;
+
+                        /**
+                         * FIXME: Node 2 is assumed to be the service manager.
+                         */
+                        if (newNode == 2) continue;
+
+                        resultCb(newNode, iface);
+                    }
+                },
+
+                function (/*err*/) {
+                    resultCb(null, null);
+                });
+        } else {
+            // We couldn't grab the service for some reason.
+            resultCb(null, null);
+        }
     });
 };
 

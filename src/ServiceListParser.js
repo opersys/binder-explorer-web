@@ -17,7 +17,6 @@
 "use strict";
 
 var util = require("util");
-var _ = require("underscore");
 
 /*
   { bindingRecords:
@@ -43,21 +42,8 @@ var _ = require("underscore");
     stopIfKilled: 'true',
     callStart: 'false',
     lastStartId: '6' } ]
- */
+*/
 
-var ServiceListParser = function () {
-    var self = this;
-
-    self._state = self._NEUTRAL;
-    self._services = [];
-    self._currentService = {};
-    self._currentBindingRecord = {};
-};
-
-//ServiceListParser.prototype._IN_CR = 3;
-ServiceListParser.prototype._IN_BR = 2;
-ServiceListParser.prototype._IN_SR= 1;
-ServiceListParser.prototype._NEUTRAL = 0;
 
 /* Let's say a Service structure is like this.
 
@@ -71,166 +57,159 @@ ServiceListParser.prototype._NEUTRAL = 0;
 }
  */
 
-ServiceListParser.prototype._simplify = function (s) {
-    var ss = {
-        intent: s.intent,
-        pid: s.app.pid,
-        pkg: s.packageName,
-        clients: []
-    };
+//const _IN_CR = 3;
+const _IN_BR = 2;
+const _IN_SR= 1;
+const _NEUTRAL = 0;
 
-    s.bindingRecords.forEach(function (br) {
-        if (br.client) {
-            ss.clients.push(br.client.pid);
-        }
-    });
-
-    return ss;
-};
-
-ServiceListParser.prototype.getServicesForPid = function (pid) {
-    var self = this;
-
-    return _.map(
-        _.filter(self._services, function (s) {
-            return s.app && s.app.pid === pid;
-        }),
-        function (s) {
-            return self._simplify(s);
-        }
-    );
-};
-
-ServiceListParser.prototype._parsePr = function (prValue) {
-    if (prValue === "null")
-        return {};
-
-    var pr = prValue.match(/ProcessRecord{.* ([0-9]*):(.*)\/.*}/);
-    var pid = pr[1];
-    var nm = pr[2];
-
-    return { "name": nm, "pid": pid };
-};
-
-ServiceListParser.prototype._parseVar = function (varLine) {
-    varLine = varLine.split(/=/);
-
-    var varName = varLine.shift();
-    var varValue = varLine.join("=");
-
-    return {"name": varName, "value": varValue};
-};
-
-ServiceListParser.prototype._parseCrLine = function (crLine) {
-    var self = this;
-    var m = crLine.match(/Client AppBindRecord{.* (ProcessRecord{.*}})/);
-
-    if (m) {
-        return self._parsePr(m[1]);
-    } else {
-        return "unknown";
+class ServiceListParser {
+    constructor() {
+        this._state = _NEUTRAL;
+        this._services = [];
+        this._currentService = {};
+        this._currentBindingRecord = {};        
     }
-};
 
-ServiceListParser.prototype._parseBrLine = function (brLine) {
-    var self = this;
-    var v;
+    simplify(s) {
+        let ss = {
+            intent: s.intent,
+            pid: s.app.pid,
+            pkg: s.packageName,
+            clients: []
+        };
+        
+        s.bindingRecords.forEach(function (br) {
+            if (br.client) ss.clients.push(br.client.pid);
+        });
 
-    if (brLine.match(/^intent|^binder/)) {
-        v = self._parseVar(brLine);
-
-        self._currentBindingRecord[v.name] = v.value;
-
-    } else if (brLine.match(/^requested/)) {
-        var vs, vl = brLine.split(/ /);
-
-        while ((vs = vl.shift()) != null) {
-            v = self._parseVar(vs);
-            self._currentBindingRecord[v.name] = v.value;
-        }
+        return ss;        
     }
-};
 
-ServiceListParser.prototype._parseSrLine = function (srLine) {
-    var self = this;
-    var v;
-
-    if (srLine.match(/^intent|^packageName|^processName|^baseDir|^dataDir|^app/)) {
-        v = self._parseVar(srLine);
-
-        if (v.name === "app") {
-            self._currentService[v.name] = self._parsePr(v.value);
-        } else {
-            self._currentService[v.name] = v.value;
-        }
-
-    } else if (srLine.match(/^createTime|^lastActivity|^startRequested/)) {
-        var vs, vl = srLine.split(/ /);
-
-        while ((vs = vl.shift()) != null) {
-            v = self._parseVar(vs);
-            self._currentService[v.name] = v.value;
-        }
+    getServicesForPid(pid) {
+        return this._services.filter((s) => s.app && s.app.pid === pid).map((s) => this.simplify(s));
     }
-};
 
-ServiceListParser.prototype.parseOutput = function (output) {
-    var self = this;
-    var line, lines = output.split(/\n/);
+    parsePr(prValue) {
+        if (prValue === "null")
+            return {};
+        
+        let pr = prValue.match(/ProcessRecord{.* ([0-9]*):(.*)\/.*}/);
+        let pid = pr[1];
+        let nm = pr[2];
+        
+        return { "name": nm, "pid": pid };        
+    }
 
-    self._state = self._NEUTRAL;
-    self._services.length = 0;
+    parseVar(varLine) {
+        varLine = varLine.split(/=/);
 
-    while ((line = lines.shift()) != null) {
-        line = line.trim();
+        let varName = varLine.shift();
+        let varValue = varLine.join("=");
 
-        if (self._state !== self._NEUTRAL && line.match(/^\s*$/)) {
-            self._state = self._NEUTRAL;
+        return {"name": varName, "value": varValue};        
+    }
 
-            self._currentService.bindingRecords.push(self._currentBindingRecord);
-            self._currentBindingRecord = {};
+    parseCrLine(crLine) {
+        let m = crLine.match(/Client AppBindRecord{.* (ProcessRecord{.*}})/);
+        
+        if (m)
+            return this.parsePr(m[1]);
+        else
+            return "unknown";        
+    }
 
-            self._services.push(self._currentService);
-            self._currentService = {};
-            self._currentService.bindingRecords = [];
-        }
-        /* Parse the lines starting by * */
-        else if (line.match(/^\s*\*.*/)) {
-            if (self._state === self._NEUTRAL) {
-                if (line.match(/ServiceRecord{/)) {
-                    self._state = self._IN_SR;
+    parseBrLine(brLine) {
+        let v;
+
+        if (brLine.match(/^intent|^binder/)) {
+            v = this.parseVar(brLine);
+            this._currentBindingRecord[v.name] = v.value;
+
+        } else if (brLine.match(/^requested/)) {
+            let vs, vl = brLine.split(/ /);
+
+            while ((vs = vl.shift()) != null) {
+                v = this.parseVar(vs);
+                this._currentBindingRecord[v.name] = v.value;
+            }
+        }        
+    }
+
+    parseSrLine(srLine) {
+        var v;
+
+        if (srLine.match(/^intent|^packageName|^processName|^baseDir|^dataDir|^app/)) {
+            v = this.parseVar(srLine);
+
+            if (v.name === "app")
+                this._currentService[v.name] = this.parsePr(v.value);
+            else
+                this._currentService[v.name] = v.value;
+            
+        } else if (srLine.match(/^createTime|^lastActivity|^startRequested/)) {
+            var vs, vl = srLine.split(/ /);
+
+            while ((vs = vl.shift()) != null) {
+                v = this.parseVar(vs);
+                this._currentService[v.name] = v.value;
+            }
+        }        
+    }
+
+    parseOutput(output) {
+        let line, lines = output.split(/\n/);
+
+        this._state = _NEUTRAL;
+        this._services.length = 0;
+
+        while ((line = lines.shift()) != null) {
+            line = line.trim();
+
+            if (this._state !== _NEUTRAL && line.match(/^\s*$/)) {
+                this._state = _NEUTRAL;
+
+                this._currentService.bindingRecords.push(this._currentBindingRecord);
+                this._currentBindingRecord = {};
+
+                this._services.push(this._currentService);
+                this._currentService = {};
+                this._currentService.bindingRecords = [];
+            }
+            /* Parse the lines starting by * */
+            else if (line.match(/^\s*\*.*/)) {
+                if (this._state === _NEUTRAL) {
+                    if (line.match(/ServiceRecord{/))
+                        this._state = _IN_SR;
+                }
+                else if (this._state === _IN_SR) {
+                    if (line.match(/IntentBindRecord{/))
+                        this._state = _IN_BR;
+                }
+                else if (this._state === _IN_BR) {
+                    if (line.match(/Client AppBindRecord/))
+                        this._currentBindingRecord.client = this.parseCrLine(line);
+
+                    else if (line.match(/IntentBindRecord{/)) {
+                        this._currentService.bindingRecords.push(this._currentBindingRecord);
+                        this._currentBindingRecord = {};
+                    }
                 }
             }
-            else if (self._state === self._IN_SR) {
-                if (line.match(/IntentBindRecord{/)) {
-                    self._state = self._IN_BR;
-                }
-            }
-            else if (self._state === self._IN_BR) {
-                if (line.match(/Client AppBindRecord/)) {
-                    self._currentBindingRecord.client = self._parseCrLine(line);
-                }
-                else if (line.match(/IntentBindRecord{/)) {
-                    self._currentService.bindingRecords.push(self._currentBindingRecord);
-                    self._currentBindingRecord = {};
-                }
-            }
-        }
-        /* Line is not starting by * */
-        else if (self._state !== self._NEUTRAL) {
-            if (self._state === self._IN_SR) {
-                self._parseSrLine(line);
-            }
+            /* Line is not starting by * */
+            else if (this._state !== _NEUTRAL) {
+                if (this._state === _IN_SR)
+                    this.parseSrLine(line);
 
-            if (self._state === self._IN_BR) {
-                self._parseBrLine(line);
+                if (this._state === _IN_BR)
+                    this.parseBrLine(line);
+            }
+            else if (this._state === _NEUTRAL) {
+                this._currentService = {};
+                this._currentService.bindingRecords = [];
             }
         }
-        else if (self._state === self._NEUTRAL) {
-            self._currentService = {};
-            self._currentService.bindingRecords = [];
-        }
+        
     }
-};
+}
 
 module.exports = ServiceListParser;

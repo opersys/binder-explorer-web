@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2018 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,30 +16,29 @@
 
 "use strict";
 
-var _ = require("underscore");
-var async = require("async");
-var express = require("express");
-var exStatic = require("serve-static");
-var path = require("path");
-var http = require("http");
-var pslook = require("pslook");
-var Binder = require("jsbinder");
-var fs = require("fs");
-var cache = require("js-cache");
-var debug = require("debug")("be");
-var SocketIO = require("socket.io");
-var domain = require("domain");
-var asock = require("abstract-socket");
+const _ = require("underscore");
+const async = require("async");
+const express = require("express");
+const exStatic = require("serve-static");
+const path = require("path");
+const http = require("http");
+const pslook = require("pslook");
+const fs = require("fs");
+const cache = require("js-cache");
+const debug = require("debug")("be");
+const SocketIO = require("socket.io");
+const domain = require("domain");
 
 // Local modules
-var BinderUtils = require("./binderUtils.js");
-var BinderWatcher = require("./binderWatcher.js");
-var DataFeeder = require("./dataFeeder.js");
+const BinderUtils = require("./binderUtils.js");
+const BinderWatcher = require("./binderWatcher.js");
+const DataFeeder = require("./dataFeeder.js");
+const ServiceManager = require("./ServiceManager.js");
 
 // Express application
-var app = express();
-var server = http.createServer(app);
-var serviceManager = new Binder.ServiceManager();
+const app = express();
+const server = http.createServer(app);
+const serviceManager = new ServiceManager.ServiceManager();
 
 var argv = require("yargs")
     .options({
@@ -51,10 +50,6 @@ var argv = require("yargs")
         "e": {
             alias: "environment",
             "default": "development",
-            type: "string"
-        },
-        "s": {
-            alias: "socket",
             type: "string"
         },
         "d": {
@@ -78,16 +73,18 @@ var agent = new http.Agent();
 agent.maxSockets = 1000;
 
 // Precache the default icon.
-fs.stat(defaultIcon, function (err, defStat) {
+fs.stat(defaultIcon, (err, defStat) => {
     var defIn = fs.createReadStream(defaultIcon);
 
-    defIn.on("readable", function () {
+    defIn.on("readable", () => {
         var defBuf = defIn.read(defStat.size);
 
         if (defBuf != null)
             imgCache.set("default", defBuf);
-        else
-            throw "Failed to read default icon";
+    });
+
+    defIn.on("error", () => {
+        throw "Failed to read default icon";
     });
 });
 
@@ -102,7 +99,7 @@ function fetchIcon (pkg, options) {
     if (!(imgBuf = imgCache.get(pkg))) {
         // Stream a request.
         var opts = {
-            hostname: "localhost",
+            hostname: "127.0.0.1",
             port: "3001",
             path: "/icon/" + pkg,
             method: "GET",
@@ -111,7 +108,7 @@ function fetchIcon (pkg, options) {
 
         debug("Performing HTTP request to /icon/" + pkg);
 
-        var req = http.request(opts, function (r) {
+        var req = http.request(opts, (r) => {
             var newImgBuf, sz, idx = 0;
 
             debug("Received HTTP request from /icon/" + pkg);
@@ -120,12 +117,12 @@ function fetchIcon (pkg, options) {
                 sz = parseInt(r.headers["content-length"]);
                 newImgBuf = new Buffer(sz);
 
-                r.on("data", function (imgChunk) {
+                r.on("data", (imgChunk) => {
                     imgChunk.copy(newImgBuf, idx);
                     idx += imgChunk.length;
                 });
 
-                r.on("end", function () {
+                r.on("end", () => {
                     imgCache.set(pkg, newImgBuf, 86400000);
                     r.socket.destroy();
                     if (options.success) options.success(newImgBuf);
@@ -139,21 +136,23 @@ function fetchIcon (pkg, options) {
                     if (options.error) options.error();
                 }
             }
-        }).on("error", function () {
-                if (hasDefault) {
-                    imgBuf = imgCache.get("default");
-                    if (options.success) options.success(imgBuf);
-                } else {
-                    if (options.error) options.error();
-                }
-            }
-        );
+        });
 
-        /*req.setTimeout(500,
-            function () {
+        req.on("error", (err) => {
+            debug("Request /icon/" + pkg + " error: " + err.message);
+            
+            if (hasDefault) {
+                imgBuf = imgCache.get("default");
+                if (options.success) options.success(imgBuf);
+            } else {
                 if (options.error) options.error();
             }
-        );*/
+        });
+
+        req.setTimeout(500, () => {
+            debug("Request /icon/" + pkg + " timedout");
+            if (options.error) options.error();
+        });
 
         req.end();
     }
@@ -168,7 +167,7 @@ function fetchIcon (pkg, options) {
 function fetchAidl(serviceName, serviceClassName, options) {
     // Stream a request.
     var opts = {
-        hostname: "localhost",
+        hostname: "127.0.0.1",
         port: "3001",
         path: "/aidl/" + serviceName + "/" + serviceClassName,
         method: "GET",
@@ -177,7 +176,7 @@ function fetchAidl(serviceName, serviceClassName, options) {
 
     debug("Performing HTTP request on /aidl/" + serviceName + "/" + serviceClassName);
 
-    var req = http.request(opts, function (r) {
+    var req = http.request(opts, (r) => {
         var sz, raidlBuf, idx;
 
         debug("Received HTTP request from /aidl/" + serviceName + "/" + serviceClassName);
@@ -186,137 +185,106 @@ function fetchAidl(serviceName, serviceClassName, options) {
             sz = parseInt(r.headers["content-length"]);
             raidlBuf = new Buffer(sz);
 
-            r.on("data", function (raidlChunk) {
+            r.on("data", (raidlChunk) => {
                 raidlChunk.copy(raidlBuf, idx);
                 idx += raidlChunk.length;
             });
 
-            r.on("end", function () {
+            r.on("end", () => {
                 if (options.success) options.success(raidlBuf);
             });
         }
-    }).on("error", function () {
+    }).on("error", () => {
         if (options.error) options.error();
     });
 
-    req.setTimeout(500,
-        function () {
-            if (options.error) options.error();
-        }
-    );
+    req.setTimeout(500, () => {
+        if (options.error) options.error();
+    });
 
     req.end();
 }
 
-app.head("/icon/:app", function (req, res) {
+app.head("/icon/:app", (req, res) => {
     res.set("Content-type", "image/png");
     res.set("Cache-Control", "public, max-age=86400000");
 
     fetchIcon(req.params.app, {
-        success: function (imgBuf) {
+        success: (imgBuf) => {
             res.set("Content-length", imgBuf.length);
             res.end();
         },
-        error: function () {
+        error: () => {
             res.status(404).end();
         }
     });
 });
 
-app.get("/icon/:app", function (req, res) {
+app.get("/icon/:app", (req, res) => {
     res.set("Content-type", "image/png");
     res.set("Cache-Control", "public, max-age=86400000");
 
     fetchIcon(req.params.app, {
-        success: function (imgBuf) {
+        success: (imgBuf) => {
             res.set("Content-length", imgBuf.length);
 
-            res.write(imgBuf, function () {
+            res.write(imgBuf, () => {
                 res.end();
             });
         },
-        error: function () {
+        error: () => {
             res.status(404).end();
         }
     });
 });
 
-// This is the "keepalive" socket. The app front end opens a LocalServerSocket on which
-// the web front end can connect. Once the web front end is connected, killing the front
-// end app will close the socket and this code ensure the backend will exit once that happens.
-if (app.get("socket")) {
-    var kasock;
-
-    // This retry call will actually never ends. We only make it end when we receive an error.
-    async.retry({times: 2, interval: 200},
-        function (retryCallback) {
-            kasock = asock.connect('\0' + app.get("socket"), function () {
-            });
-
-            kasock.on("end", function () {
-                retryCallback("Lost keepalive socket...");
-            });
-
-            kasock.on("error", function (err) {
-                retryCallback("Error with keepalive socket: " + err);
-            });
-        },
-        function (err) {
-            console.log("Giving up on keepalive socket, bailing out: " + err);
-        }
-    );
-}
-
 // Routes.
-app.get("/proc", function (req, res) {
+app.get("/proc", (req, res) => {
     var pslook_domain = domain.create();
 
-    pslook_domain.on("error", function (err) {
+    pslook_domain.on("error", (err) => {
         debug("Error in pslook: " + err);
         res.status(404).end();
     });
 
-    pslook_domain.run(function () {
-        pslook.list(function (err, processes) {
+    pslook_domain.run(() => {
+        pslook.list((err, processes) => {
             var procsData = [];
 
             if (err)
                 res.status(404).end();
 
-            async.each(processes,
-                function (item, callback) {
-                    try {
-                        pslook.read(item.pid, function (err, procData) {
-                            if (err) {
-                                callback(err);
-                            } else {
-                                procsData.push(procData);
-                                callback();
-                            }
-                        }, {fields: pslook.ALL});
-                    } catch (ex) {
-                        debug("Failed to read process " + item.pid);
-                        res.status(404).end();
-                    }
-                },
-                function () {
-                    res.json(procsData).end();
+            async.each(processes, (item, callback) => {
+                try {
+                    pslook.read(item.pid, (err, procData) => {
+                        if (err) {
+                            callback(err);
+                        } else {
+                            procsData.push(procData);
+                            callback();
+                        }
+                    }, {fields: pslook.ALL});
+                } catch (ex) {
+                    debug("Failed to read process " + item.pid);
+                    res.status(404).end();
                 }
-            );
+            }, () => {
+                res.json(procsData).end();
+            });
         }, {fields: pslook.ALL});
     });
 });
 
-app.get("/proc/:pid", function (req, res) {
+app.get("/proc/:pid", (req, res) => {
     var pslook_domain = domain.create();
 
-    pslook_domain.on("error", function (err) {
+    pslook_domain.on("error", (err) => {
         debug("Error in pslook: " + err);
         res.status(404).end();
     });
 
-    pslook_domain.run(function () {
-        pslook.read(req.params.pid, function (err, process) {
+    pslook_domain.run(() => {
+        pslook.read(req.params.pid, (err, process) => {
             if (err) {
                 res.status(404).end();
             } else {
@@ -326,10 +294,10 @@ app.get("/proc/:pid", function (req, res) {
     });
 });
 
-app.get("/binder/procs", function (req, res) {
+app.get("/binder/procs", (req, res) => {
     try {
-        BinderUtils.readBinderStateFile(function (binderProcs) {
-            res.json(_.map(_.keys(binderProcs), function (binderProcPid) {
+        BinderUtils.readBinderStateFile((binderProcs) => {
+            res.json(_.map(_.keys(binderProcs), (binderProcPid) => {
                 return { pid: binderProcPid  };
             }));
         });
@@ -338,9 +306,9 @@ app.get("/binder/procs", function (req, res) {
     }
 });
 
-app.get("/binder/procs/:pid([0-9]+)", function (req, res) {
+app.get("/binder/procs/:pid([0-9]+)", (req, res) => {
     try {
-        BinderUtils.readBinderStateFile(function (binderProcs) {
+        BinderUtils.readBinderStateFile((binderProcs) => {
             if (binderProcs[req.params.pid])
                 res.json(binderProcs[req.params.pid]);
             else
@@ -351,15 +319,15 @@ app.get("/binder/procs/:pid([0-9]+)", function (req, res) {
     }
 });
 
-app.get("/binder/services/:serviceName", function (req, res) {
+app.get("/binder/services/:serviceName", (req, res) => {
     try {
         // Make a catalog of node IDs to PID because findServiceNodeId doesn't provide
         // us with the PID.
-        BinderUtils.readBinderStateFile(function (binderProcs) {
+        BinderUtils.readBinderStateFile((binderProcs) => {
             var binderProcsByNode = {};
 
-            _.each(_.keys(binderProcs), function (binderPid) {
-                _.each(binderProcs[binderPid].nodes, function (nodeData) {
+            _.each(_.keys(binderProcs), (binderPid) => {
+                _.each(binderProcs[binderPid].nodes, (nodeData) => {
                     binderProcsByNode[nodeData.id] = {};
                     binderProcsByNode[nodeData.id] = binderProcs[binderPid];
                     binderProcsByNode[nodeData.id].node = nodeData.id;
@@ -367,7 +335,7 @@ app.get("/binder/services/:serviceName", function (req, res) {
                 });
             });
 
-            BinderUtils.findServiceNodeId(app.get("directory"), req.params.serviceName, function (node, iface) {
+            BinderUtils.findServiceNodeId(app.get("directory"), req.params.serviceName, (node, iface) => {
                 var response = {};
 
                 if (!node && !iface)
@@ -387,37 +355,45 @@ app.get("/binder/services/:serviceName", function (req, res) {
     }
 });
 
-app.get("/binder/services", function (req, res) {
-    res.json(_.map(serviceManager.list(), function (serviceName) {
-        return { name: serviceName };
+app.get("/binder/services", (req, res) => {
+    res.json(_.map(serviceManager.all(), (service) => {
+        return { name: service.name };
     }));
 });
 
-app.get("/aidl/:serviceName/:serviceClassName", function (req, res) {
+app.get("/aidl/:serviceName/:serviceClassName", (req, res) => {
     fetchAidl(req.params.serviceName, req.params.serviceClassName, {
-        success: function (raidlBuf) {
-            res.write(raidlBuf, function () {
+        success: (raidlBuf) => {
+            res.write(raidlBuf, () => {
                 res.end();
             });
         },
-        error: function () {
+        error: () => {
             res.status(404).end();
         }
     });
 });
 
+function setCustomHeaders(res, path) {
+    if (new RegExp(".css$").test(path))
+        res.setHeader("Content-type", "text/css");
+}
+
 // Static files.
-app.use(exStatic(path.join(__dirname, "public"), { index: false }));
-app.get("/", function (req, res) { res.redirect("/index.html"); });
+app.use(exStatic(path.join(__dirname, "public"), {
+    index: false,
+    setHeaders: setCustomHeaders
+}));
+app.get("/", (req, res) => { res.redirect("/index.html"); });
 
 var io = new SocketIO({ transports: ["websocket"] });
 var binderWatcher = new BinderWatcher(app.get("directory"));
 
-io.on("connection", function (sock) {
+io.on("connection", (sock) => {
     sock.dataFeeder = new DataFeeder(binderWatcher, sock);
     sock.dataFeeder.start();
 
-    sock.on("disconnect", function () {
+    sock.on("disconnect", () => {
         sock.dataFeeder.stop();
         sock.dataFeeder = null;
     });
@@ -425,10 +401,10 @@ io.on("connection", function (sock) {
 
 io.listen(server);
 binderWatcher.start();
-server.listen(app.get("port"), function() {});
+server.listen(app.get("port"), () => {});
 
 // Handle receiving the "quit" command from the UI.
-process.stdin.on("data", function (chunk) {
+process.stdin.on("data", (chunk) => {
     var cmd, cs;
 
     cs = chunk.toString().split("\n")[0].trim().split(" ");
@@ -437,6 +413,5 @@ process.stdin.on("data", function (chunk) {
     if (cmd === "quit")
         process.exit();
     else
-        console.log("Unknown command: " + cmd)
+        console.log("Unknown command: " + cmd);
 });
-

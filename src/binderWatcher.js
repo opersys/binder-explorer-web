@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2018 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,257 +16,223 @@
 
 "use strict";
 
-var async = require("async");
-var util = require("util");
-var events = require("events");
-var fs = require("fs");
-var Binder = require("jsbinder");
-var _ = require("underscore");
-var debug = require("debug")("be:watcher");
-var cp = require("child_process");
-var pslook = require("pslook");
+const async = require("async");
+const util = require("util");
+const events = require("events");
+const fs = require("fs");
+const debug = require("debug")("be:watcher");
+const cp = require("child_process");
+const pslook = require("pslook");
+const rl = require("readline");
+const EventEmitter = require("events");
+const Buffer = require("buffer").Buffer;
 
 // Local modules
-var BinderUtils = require("./binderUtils.js");
-var ServiceListParser = require("./ServiceListParser.js");
+const BinderUtils = require("./binderUtils.js");
+const ServiceListParser = require("./ServiceListParser.js");
+const ServiceManager = require("./ServiceManager.js");
 
-var BinderWatcher = function (workingDir) {
-    this._workingDir = workingDir;
+class BinderWatcher extends EventEmitter {
+    constructor() {
+        super();
 
-    this._serviceManager = new Binder.ServiceManager();
-    this._serviceListParser = new ServiceListParser();
+        this._serviceListParser = new ServiceListParser();
+        this._binderServices = {};
+        this._binderProcesses = {};
+        this._userProcesses = {};
+        this._serviceManager = new ServiceManager.ServiceManager();
+    }
 
-    this._binderServices = {};
-    this._binderProcesses = {};
-    this._userProcesses = {};
+    getProcesses() { return this._binderProcesses; }
+    getServices() { return this._binderServices; }
+    getUserProcesses() { return this._userProcesses; }
 
-    this._serviceManager = new Binder.ServiceManager();
-    this._activityService = this._serviceManager.getService("activity");
-};
+    start() {
+        debug("Starting timers.");
 
-util.inherits(BinderWatcher, events.EventEmitter);
+        setTimeout(() => { this.scanBinderServices(); }, 500);
+        setTimeout(() => { this.scanBinderProcesses(); }, 500);
+        setTimeout(() => { this.scanProcessServices(); }, 1000);
+    }
 
-BinderWatcher.prototype.getProcesses = function () { return this._binderProcesses; };
-BinderWatcher.prototype.getServices = function () { return this._binderServices; };
-BinderWatcher.prototype.getUserProcesses = function () { return this._userProcesses; };
+    dumpServices(resultCb, errorCb) {
+        let proc, buf;        
 
-BinderWatcher.prototype.start = function() {
-    var self = this;
+        proc = cp.spawn("dumpsys", ["activity", "services"], {stdio: ["ignore", "pipe", "ignore"]});
+        if (proc.stdout) {
+            proc.stdout.on("data", (data) => {
+                if (!buf)
+                    buf = Buffer.from(data);
+                else
+                    buf = Buffer.concat([buf, data]);
+            });
 
-    debug("Starting timers.");
-
-    setTimeout(function () { self._scanBinderServices(); }, 500);
-    setTimeout(function () { self._scanBinderProcesses(); }, 500);
-    setTimeout(function () { self._scanProcessServices(); }, 1000);
-};
-
-BinderWatcher.prototype._scanProcessServices = function () {
-    var self = this;
-    var dumpOut;
-
-    dumpOut = self._activityService.dump("services");
-    self._serviceListParser.parseOutput(dumpOut);
-
-    _.map(_.values(self._binderProcesses), function (bproc) {
-        var svcs = self._serviceListParser.getServicesForPid(bproc.pid);
-
-        if (!self._userProcesses[bproc.pid]) {
-            self._userProcesses[bproc.pid] = {
-                services: [],
-                pid: bproc.pid
-            };
-        }
-
-        if (svcs) {
-            svcs.forEach(function (svc) {
-                if (!_.some(self._userProcesses[svc.pid].services, function (bsvc) {
-                        return bsvc.intent === svc.intent;
-                    })) {
-                    self._userProcesses[svc.pid].services.push(svc);
-                    self._userProcesses[svc.pid].pid = svc.pid;
-
-                    self.emit("onProcessServiceAdded", svc);
-                }
+            proc.stdout.on("end", () => {
+                this._serviceListParser.parseOutput(buf.toString());
+                resultCb();
             });
         }
+        else errorCb();
+    }
 
-        if (svcs.length < self._userProcesses[bproc.pid].services.length) {
-            self._userProcesses[bproc.pid].services = _.filter(self._userProcesses[bproc.pid].services,
-                function (bsvc) {
-                    if (_.some(svcs, function (s) {
-                            return s.intent === bsvc.intent;
-                        })) {
-                        self.emit("onProcessServiceRemoved", bsvc);
-                        return true;
-                    }
+    scanProcessServices() {
+        var dumpOut;
 
-                    return false;
+        // If the activty service isn't there, this won't work at all.
+        if (!this._serviceManager.getService("activity"))
+            return;
+
+        this.dumpServices(() => {
+            Object.values(this._binderProcesses).map((bproc) => {
+                var svcs = this._serviceListParser.getServicesForPid(bproc.pid);
+
+                if (!this._userProcesses[bproc.pid]) {
+                    this._userProcesses[bproc.pid] = {
+                        services: [],
+                        pid: bproc.pid
+                    };
                 }
-            );
-        }
-    });
 
-    setTimeout(function () {
-        self._scanProcessServices();
-    }, 1000);
-};
+                if (svcs) {
+                    svcs.forEach((svc) => {
+                        if (!this._userProcesses[svc.pid].services.some((bsvc) => bsvc.intent === svc.intent)) {
+                            this._userProcesses[svc.pid].services.push(svc);
+                            this._userProcesses[svc.pid].pid = svc.pid;                        
+                            this.emit("onProcessServiceAdded", svc);
+                        }
+                    });
+                }
 
-BinderWatcher.prototype._scanBinderServices = function () {
-    var self = this, diff, newlist, oldlist;
-
-    newlist = self._serviceManager.list();
-    oldlist = _.keys(self._binderServices);
-
-    diff = _.difference(newlist, oldlist);
-
-    self._preloadBinderServiceData(
-        function (binderProcs, binderProcsByNode) {
-
-            async.eachLimit(diff, 10, function (added, callback) {
-                self._readBinderServiceData(added, binderProcs, binderProcsByNode,
-                    function (service) {
-                        self.emit("onServiceData", service);
-                        callback();
-                    },
-                    function (err) {
-                        // TODO: Do something.
-                        callback();
-                    }
-                );
+                if (svcs.length < this._userProcesses[bproc.pid].services.length) {
+                    this._userProcesses[bproc.pid].services = this._userProcesses[bproc.pid].services.filter(
+                        (bsvc) => {
+                            if (svcs.some((s) => s.intent === bsvc.intent))
+                                this.emit("onProcessServiceRemoved", bsvc);
+                        });
+                }
             });
-        }
-    );
-};
 
-BinderWatcher.prototype._scanBinderProcesses = function () {
-    var self = this;
-    var newlist, oldlist, addedlist, removedlist;
+            setTimeout(() => { this.scanProcessServices(); }, 1000);            
+        }, () => {
+            debug("Cannot get user processes");
+        });        
+    }
 
-    BinderUtils.readBinderStateFile(function (newBinderProcs) {
-        oldlist = _.keys(self._binderProcesses);
-        newlist = _.keys(newBinderProcs);
+    scanBinderServices() {
+        let diff, newlist, oldlist;
 
-        addedlist = _.difference(newlist, oldlist);
-        removedlist = _.difference(oldlist, newlist);
+        newlist = this._serviceManager.all().map((service) => service.name);
+        oldlist = Object.keys(this._binderServices);
 
-        if (addedlist.length > 0) {
-            debug("Added list: " + util.inspect(addedlist));
-        }
-        if (removedlist.length > 0) {
-            debug("Removed list: " + util.inspect(removedlist));
-        }
+        diff = newlist.filter(x => !oldlist.includes(x));
 
-        if (addedlist.length > 0 || removedlist.length > 0) {
-            debug("Done scanning binder processes: " + addedlist.length + " added, " + removedlist.length + " removed");
-        }
-
-        async.parallel([
-
-            function (parallelCallback) {
-                async.each(addedlist,
-                    function (added, eachCallback) {
-                        debug("added: " + added);
-                        self._readBinderProcessData(added,
-                            function (process) {
-                                self.emit("onProcessAdded", process);
-                                eachCallback();
-                            },
-                            function (err) {
-                                debug("Error reading Binder process data for " + added + ": " + err);
-                                eachCallback();
-                            }
-                        );
-                    },
-                    function () {
-                        debug("Done handling added process list.");
-                        parallelCallback();
-                    }
-                );
-            },
-
-            function (parallelCallback) {
-                async.each(removedlist,
-                    function (removed, eachCallback) {
-                        delete self._binderProcesses[removed];
-                        self.emit("onProcessRemoved", removed);
-                        eachCallback();
-                    },
-                    function () {
-                        debug("Done handling removed process list.");
-                        parallelCallback();
-                    }
-                );
-            }
-
-        ], function () {
-            setTimeout(function () {
-                self._scanBinderProcesses();
-            }, 1000);
+        this.preloadBinderServiceData((binderProcs, binderProcsByNode) => {
+            async.eachLimit(diff, 10, (added, callback) => {
+                
+                debug("Looking for service: " + added);
+                
+                this.readBinderServiceData(added, binderProcs, binderProcsByNode,
+                                           (service) => {
+                                               this.emit("onServiceData", service);
+                                               callback();
+                                           }, (err) => {
+                                               console.log("readBinderServiceData failed");
+                                               // TODO: Do something.
+                                               callback();
+                                           });
+            });
         });
-    });
-};
+    }
 
-BinderWatcher.prototype._readBinderProcessData = function (binderProcId, successCallback, errorCallback) {
-    var self = this;
+    scanBinderProcesses() {
+        let newlist, oldlist, addedlist, removedlist;
+        
+        BinderUtils.readBinderStateFile((newBinderProcs) => {
+            oldlist = Object.keys(this._binderProcesses);
+            newlist = Object.keys(newBinderProcs);
 
-    debug("Reading process data for: " + binderProcId);
+            addedlist = newlist.filter(x => !oldlist.includes(x));
+            removedlist = oldlist.filter(x => !newlist.includes(x));
 
-    async.waterfall([
-        function (next) {
-            BinderUtils.readBinderStateFile(
-                function (binderProcs) {
-                    if (binderProcs[binderProcId]) {
-                        self._binderProcesses[binderProcId] = binderProcs[binderProcId];
-                        next();
-                    } else {
-                        next("Unknown binder process");
-                    }
-                },
-                function (err) {
-                    next(err);
-                }
-            );
-        },
+            if (addedlist.length > 0)
+                debug("Added list: " + util.inspect(addedlist));
 
-        function (next) {
+            if (removedlist.length > 0)
+                debug("Removed list: " + util.inspect(removedlist));
 
-            /*
-             * PSLOOK 0.10 ERROR HANDLE IS PATHOLOGICAL. For each option put in fields, the error
-             * callback risks be called many times.
-             */
+            if (addedlist.length > 0 || removedlist.length > 0)
+                debug("Done scanning binder processes: " + addedlist.length + " added, " + removedlist.length + " removed");
+            async.each(addedlist, (added, eachCallback) => {
+                this.readBinderProcessData(added, (process) => {
+                    this.emit("onProcessAdded", process);
+                    eachCallback();
+                }, (err) => {
+                    debug("Error reading Binder process data for " + added + ": " + err);
+                    eachCallback();
+                });
+            });
 
-            pslook.read(binderProcId, function (err, procData) {
-                if (err) {
-                    next("Failed to read process data from /proc");
-                } else {
-                    self._binderProcesses[binderProcId].process = procData;
+            removedlist.forEach((removed) => {
+                delete this._binderProcesses[removed];
+                this.emit("onProcessRemoved", removed);                            
+            });
+            
+            setTimeout(() => { this.scanBinderProcesses(); }, 1000);
+        });
+    };
+
+    readBinderProcessData(binderProcId, successCallback, errorCallback) {
+        let binderProcess = {};
+        
+        async.waterfall([(next) => {
+            BinderUtils.readBinderStateFile((binderProcs) => {
+                if (binderProcs[binderProcId]) {
+                    binderProcess = binderProcs[binderProcId];
                     next();
                 }
-            }, {fields: pslook.CMD });
-        }
-    ],
-        // Error handler.
-        function (err) {
+                else next("Unknown binder process");
+            });
+        }, (next) => {
+            /*
+             * PSLOOK 0.10 ERROR HANDLING IS PATHOLOGICAL. For each
+             * option put in fields, the error callback risks be
+             * called many times.
+             */
+            pslook.read(binderProcId, (err, procData) => {
+                if (err)
+                    next("Failed to read process data from /proc: " + err);
+                else {
+                    if (!procData.cmdline[0].endsWith("grabservice")) {
+                        binderProcess.process = procData;
+                        next();
+                    }
+                    else next("grabservice");
+                }
+            }, {fields: pslook.CMD });            
+        }, (next) => {
+            // Properly add the process to the list.
+            this._binderProcesses[binderProcId] = binderProcess;
+            next();
+        }],(err) => {
             if (err && errorCallback) {
-                delete self._binderProcesses[binderProcId];
-                errorCallback("Failed to get Binder process information: " + err);
-            } else {
-                successCallback(self._binderProcesses[binderProcId]);
+                // Grabservice processes needs to be excluded.
+                if (err != "grabservice") {
+                    delete this._binderProcesses[binderProcId];
+                    errorCallback("Failed to get Binder process information: " + err);
+                }
             }
-        }
-    );
-};
+            else successCallback(this._binderProcesses[binderProcId]);
+        });
+    }
 
-BinderWatcher.prototype._preloadBinderServiceData = function (preloadCallback) {
-    BinderUtils.readBinderStateFile(
-        // Success.
-        function (binderProcs) {
+    preloadBinderServiceData(preloadCallback) {
+        BinderUtils.readBinderStateFile((binderProcs) => {
             var binderProcsByNode = {};
 
             debug("Preloaded services data");
 
-            _.each(_.keys(binderProcs), function (binderPid) {
-                _.each(binderProcs[binderPid].nodes, function (nodeData) {
+            Object.keys(binderProcs).forEach((binderPid) => {
+                binderProcs[binderPid].nodes.forEach((nodeData) => {
                     binderProcsByNode[nodeData.id] = {};
                     binderProcsByNode[nodeData.id] = binderProcs[binderPid];
                     binderProcsByNode[nodeData.id].node = nodeData.id;
@@ -275,51 +241,48 @@ BinderWatcher.prototype._preloadBinderServiceData = function (preloadCallback) {
             });
 
             preloadCallback(binderProcs, binderProcsByNode);
-        }
-    );
-};
-
-BinderWatcher.prototype._readBinderServiceData = function (serviceName, binderProcs, binderProcsByNode,
-                                                           successCallback, errorCallback) {
-    var self = this;
-
-    try {
-        async.waterfall([
-            function (next) {
-                BinderUtils.findServiceNodeId(self._workingDir, serviceName, function (node, iface) {
-                    self._binderServices[serviceName] = {
-                        name: serviceName,
-                        iface: iface,
-                        node: node,
-                        pid: binderProcsByNode[node].pid
-                    };
-
-                    if (!serviceName) {
-                        debug("No service name for interface " + iface);
-                    }
-
-                    //successCallback(self._binderServices[serviceName]);
-                    next(null, binderProcsByNode[node].pid);
-                });
-            },
-
-            function (pid, next) {
-                pslook.read(pid, function (err, procData) {
-                    if (err)
-                        next("Failed to read process data");
-
-                    self._binderServices[serviceName].process = procData;
-                    next();
-                }, {fields: pslook.PID | pslook.CWD | pslook.CMD | pslook.ENV });
-            }
-        ],
-
-        function (err) {
-            successCallback(self._binderServices[serviceName]);
         });
-    } catch (err) {
-        if (errorCallback) errorCallback(err);
     }
-};
+
+    readBinderServiceData(serviceName, binderProces, binderProcsByNode, successCallback, errorCallback) {
+        try {
+            async.waterfall([(next) => {
+                BinderUtils.findServiceNodeId(serviceName, (node, iface) => {
+                    if (binderProcsByNode[node] == null)
+                        next(null, null);
+                    else {
+                        this._binderServices[serviceName] = {
+                            name: serviceName,
+                            iface: iface,
+                            node: node,
+                            pid: binderProcsByNode[node].pid
+                        };
+
+                        if (!serviceName)
+                            debug("No service name for interface " + iface);
+
+                        //successCallback(self._binderServices[serviceName]);
+                        next(null, binderProcsByNode[node].pid);
+                    }
+                });
+            }, (pid, next) => {
+                if (pid) {
+                    pslook.read(pid, (err, procData) => {
+                        if (err)
+                            next("Failed to read process data");
+
+                        this._binderServices[serviceName].process = procData;
+                        next();
+                    }, {fields: pslook.PID | pslook.CWD | pslook.CMD | pslook.ENV });
+                }
+            }
+        ], (err) => {
+            successCallback(this._binderServices[serviceName]);
+        });
+        } catch (err) {
+            if (errorCallback) errorCallback(err);
+        }        
+    }
+}
 
 module.exports = BinderWatcher;
