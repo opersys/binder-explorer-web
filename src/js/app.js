@@ -15,23 +15,23 @@
  */
 
 define(function (require) {
-    var $ = require("jquery");
-    var MainView = require("views/main");
-    var Toolbar = require("views/toolbar");
-    var BinderProcesses = require("models/BinderProcesses");
-    var BinderServices = require("models/BinderServices");
-    var Operations = require("models/Operations");
-    var Operation = require("models/Operation");
-    var ServiceLinkHandler = require("servicelinkhandler");
-    var UserServiceLinkHandler = require("userservicelinkhandler");
+    let $ = require("jquery");
+    let MainView = require("views/main");
+    let Toolbar = require("views/toolbar");
+    let BinderProcesses = require("models/BinderProcesses");
+    let BinderServices = require("models/BinderServices");
+    let Operations = require("models/Operations");
+    let Operation = require("models/Operation");
+    let ServiceLinkHandler = require("servicelinkhandler");
+    let UserServiceLinkHandler = require("userservicelinkhandler");
 
-    var binderServices = new BinderServices();
-    var binderProcesses = new BinderProcesses([], { binderServices: binderServices });
-    var serviceLinks = new ServiceLinkHandler(binderServices, binderProcesses);
-    var userServiceLinks = new UserServiceLinkHandler(binderProcesses);
-    var operations = new Operations();
+    let binderServices = new BinderServices();
+    let binderProcesses = new BinderProcesses([], { binderServices: binderServices });
+    let serviceLinks = new ServiceLinkHandler(binderServices, binderProcesses);
+    let userServiceLinks = new UserServiceLinkHandler(binderProcesses);
+    let operations = new Operations();
 
-    var mainView = new MainView({
+    let mainView = new MainView({
         el: $("#app"),
         binderServices: binderServices,
         binderProcesses: binderProcesses,
@@ -40,7 +40,7 @@ define(function (require) {
         operations: operations
     });
 
-    var mainToolbar = new Toolbar({
+    let mainToolbar = new Toolbar({
         el: $("#toolbar"),
         operations: operations
     });
@@ -73,7 +73,7 @@ define(function (require) {
         }
     }));
 
-    var resizeWindow = function () {
+    let resizeWindow = function () {
         $("#app")
             .width($(window).width())
             .height($(window).height() - $("#toolbar").outerHeight());

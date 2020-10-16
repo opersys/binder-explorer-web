@@ -17,34 +17,29 @@
 define(function (require) {
     "use strict";
 
-    var d3 = require("d3");
-    var _ = require("underscore");
-    var Backbone = require("backbone");
+    const d3 = require("d3");
+    const _ = require("underscore");
+    const Backbone = require("backbone");
 
-    var Directed = function () {
-        var self = this;
-
-        self._linksFrom = {};
-        self._linksTo = {};
+    const Directed = function () {
+        this._linksFrom = {};
+        this._linksTo = {};
         _.extend(this, Backbone.Events);
     };
 
-    var Undirected = function () {
-        var self = this;
-
-        self._linksFrom = {};
+    const Undirected = function () {
+        this._linksFrom = {};
         _.extend(this, Backbone.Events);
     };
 
     Directed.prototype.getLinks = function (makeLinkCb) {
-        var self = this;
-        var links = [], linkVal;
+        let links = [], linkVal;
 
         if (!makeLinkCb) throw "callback missing";
 
-        _.keys(self._linksFrom).forEach(function (from) {
-            if (self._linksFrom[from] != null) {
-                self._linksFrom[from].forEach(function (to) {
+        Object.keys(this._linksFrom).forEach((from) => {
+            if (this._linksFrom[from] != null) {
+                this._linksFrom[from].forEach((to) => {
                     linkVal = makeLinkCb(from, to);
                     if (linkVal) links.push(linkVal);
                 });
@@ -55,21 +50,20 @@ define(function (require) {
     };
 
     Undirected.prototype.getLinks = function (makeLinkCb) {
-        var self = this;
-        var links = [], linkVal;
-        var doneLinks = d3.set();
+        let links = [], linkVal;
+        let doneLinks = d3.set();
 
         if (!makeLinkCb) throw "callback missing";
 
-        _.keys(self._linksFrom).forEach(function (x) {
-            if (self._linksFrom[x] != null) {
-                self._linksFrom[x].forEach(function (y) {
+        Object.keys(this._linksFrom).forEach((x) => {
+            if (this._linksFrom[x] != null) {
+                this._linksFrom[x].forEach((y) => {
                     var ak = x.toString() + "@@" + y.toString(),
                         bk = y.toString() + "@@" + x.toString();
 
                     // Handles deleted links.
-                    if (self._linksFrom[y] === null) {
-                        self._linksFrom[x].remove(y);
+                    if (this._linksFrom[y] === null) {
+                        this._linksFrom[x].remove(y);
                         return;
                     }
 
@@ -88,17 +82,16 @@ define(function (require) {
     };
 
     Directed.prototype.getLinksFrom = function (from, makeLinkCb) {
-        var self = this;
-        var links = [], linkVal;
+        let links = [], linkVal;
 
         if (!makeLinkCb) throw "callback missing";
 
-        if (self._linksFrom[from] != null) {
-            self._linksFrom[from].forEach(function (to) {
+        if (this._linksFrom[from] != null) {
+            this._linksFrom[from].forEach((to) => {
 
                 // Handles deleted links
-                if (self._linksFrom[to] === null) {
-                    self._linksFrom[to].remove(to);
+                if (this._linksFrom[to] === null) {
+                    this._linksFrom[to].remove(to);
                     return;
                 }
 
@@ -111,16 +104,14 @@ define(function (require) {
     };
 
     Undirected.prototype.getLinksFrom = function (a, makeLinkCb) {
-        var self = this;
-        var links = [], linkVal;
+        let links = [], linkVal;
 
         if (!makeLinkCb) throw "callback missing";
 
-        if (self._linksFrom[a]) {
-            self._linksFrom[a].forEach(function (y) {
-                if (self._linksFrom[y] === null) {
-                    self._linksFrom[a].remove(y);
-                }
+        if (this._linksFrom[a]) {
+            this._linksFrom[a].forEach((y) => {
+                if (this._linksFrom[y] === null)
+                    this._linksFrom[a].remove(y);
                 else {
                     linkVal = makeLinkCb(a, y);
                     if (linkVal) links.push(linkVal);
@@ -132,42 +123,36 @@ define(function (require) {
     };
 
     Directed.prototype.addLink = function (from, to) {
-        var self = this;
+        if (!this._linksFrom[from])
+            this._linksFrom[from] = d3.set();
 
-        if (!self._linksFrom[from]) {
-            self._linksFrom[from] = d3.set();
-        }
+        this._linksFrom[from].add(to);
 
-        self._linksFrom[from].add(to);
-
-        self.trigger("linkadded", from, to);
+        this.trigger("linkadded", from, to);
     };
 
     Undirected.prototype.addLink = function (a, b) {
-        var self = this;
+        if (!this._linksFrom[a])
+            this._linksFrom[a] = d3.set();
 
-        if (!self._linksFrom[a]) {
-            self._linksFrom[a] = d3.set();
-        }
-        if (!self._linksFrom[b]) {
-            self._linksFrom[b] = d3.set();
-        }
+        if (!this._linksFrom[b])
+            this._linksFrom[b] = d3.set();
 
-        self._linksFrom[a].add(b);
-        self._linksFrom[b].add(a);
+        this._linksFrom[a].add(b);
+        this._linksFrom[b].add(a);
 
-        self.trigger("linkadded", a, b);
+        this.trigger("linkadded", a, b);
     };
 
     Undirected.prototype.removeAll = function (a) {
-        var self = this, oldLinks;
+        let oldLinks;
 
-        if (self._linksFrom[a]) {
-            oldLinks = self._linksFrom[a];
-            self._linksFrom[a] = null;
+        if (this._linksFrom[a]) {
+            oldLinks = this._linksFrom[a];
+            this._linksFrom[a] = null;
 
-            oldLinks.forEach(function (b) {
-                self.trigger("linkremoved", a, b);
+            oldLinks.forEach((b) => {
+                this.trigger("linkremoved", a, b);
             });
         }
     };

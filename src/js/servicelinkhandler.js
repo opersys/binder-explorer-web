@@ -20,84 +20,76 @@
 define(function (require) {
     "use strict";
 
-    var d3 = require("d3");
-    var Backbone = require("backbone");
-    var Linker = require("linkhandler");
-    var _ = require("underscore");
+    const d3 = require("d3");
+    const Backbone = require("backbone");
+    const Linker = require("linkhandler");
+    const _ = require("underscore");
 
-    var ServiceLinkHandler = function (services, processes) {
-        var self = this;
-
-        self._services = services;
-        self._processes = processes;
-        self._pendingServiceLinks = {};
-        self._links = new Linker.Undirected();
+    const ServiceLinkHandler = function (services, processes) {
+        this._services = services;
+        this._processes = processes;
+        this._pendingServiceLinks = {};
+        this._links = new Linker.Undirected();
 
         _.extend(this, Backbone.Events);
 
-        self._services.on("add", function () {
-            self._onNewService.apply(self, arguments);
+        this._services.on("add", (m, c, opts) => {
+            this._onNewService(m, c, opts);
         });
 
-        self._processes.on("add", function () {
-            self._onNewProcess.apply(self, arguments);
+        this._processes.on("add", (m, c, opts) => {
+            this._onNewProcess(m, c, opts);
         });
 
-        self._processes.on("remove", function () {
-            self._onRemoveProcess.apply(self, arguments);
+        this._processes.on("remove", (m, c, opts) => {
+            this._onRemoveProcess(m, c, opts);
         });
 
-        self._links.on("linkadded", function () {
-            self._onLinkAdded(self, arguments);
+        this._links.on("linkadded", (f, t) => {
+            this._onLinkAdded(f, t);
         });
 
-        self._links.on("linkremoved", function () {
-            self._onLinkRemoved(self, arguments);
+        this._links.on("linkremoved", (f, t) => {
+            this._onLinkRemoved(f, t);
         });
     };
 
     ServiceLinkHandler.prototype.getLinks = function (makeLinkCb) {
-        var self = this;
-        return self._links.getLinks(makeLinkCb);
+        return this._links.getLinks(makeLinkCb);
     };
 
     ServiceLinkHandler.prototype.getLinksFrom = function (a, makeLinkCb) {
-        var self = this;
-        return self._links.getLinksFrom(a, makeLinkCb);
+        return this._links.getLinksFrom(a, makeLinkCb);
     };
 
     ServiceLinkHandler.prototype._onLinkAdded = function (serviceLinks, args) {
-        var self = this;
-        var process = self._processes.get(args[0]);
-        var service = self._services.get(args[1]);
+        let process = this._processes.get(args[0]);
+        let service = this._services.get(args[1]);
 
-        self.trigger("linkadded", process, service);
+        this.trigger("linkadded", process, service);
     };
 
     ServiceLinkHandler.prototype._onLinkRemoved = function (serviceLinks, args) {
-        var self = this;
-        var pid = args[0];
-        var serviceName = args[1];
+        let pid = args[0];
+        let serviceName = args[1];
 
-        self.trigger("linkremoved", pid, serviceName);
+        this.trigger("linkremoved", pid, serviceName);
     };
 
     ServiceLinkHandler.prototype._onNewService = function (service) {
-        var self = this;
-
         console.log("Service " + service.get("name") + " [Node: " + service.get("node") + "]" + " being added.");
 
         // Notify the that a service was added.
-        self.trigger("serviceadded", service);
+        this.trigger("serviceadded", service);
 
         // Update the links
-        if (self._pendingServiceLinks[service.get("node")]) {
-            var pendingLinks = self._pendingServiceLinks[service.get("node")];
+        if (this._pendingServiceLinks[service.get("node")]) {
+            var pendingLinks = this._pendingServiceLinks[service.get("node")];
 
-            pendingLinks.forEach(function (processPid) {
-                var process = self._processes.get(processPid);
-                self._links.addLink(process.get("pid"), service.get("name"));
-                self.trigger("linkadded", process, service);
+            pendingLinks.forEach((processPid) => {
+                var process = this._processes.get(processPid);
+                this._links.addLink(process.get("pid"), service.get("name"));
+                this.trigger("linkadded", process, service);
 
                 console.log("Resolved pending link from " + service.get("node") + " to " + process.get("pid"));
             });
@@ -105,38 +97,34 @@ define(function (require) {
     };
 
     ServiceLinkHandler.prototype._onNewProcess = function (process) {
-        var self = this;
-        var srefs = process.getServiceRefs();
-        var krefs = srefs.knownRefs;
-        var urefs = srefs.unknownRefs;
+        let srefs = process.getServiceRefs();
+        let krefs = srefs.knownRefs;
+        let urefs = srefs.unknownRefs;
 
         console.log("Process " + process.get("pid") + " being added.");
 
-        self.trigger("processadded", process);
+        this.trigger("processadded", process);
 
-        krefs.forEach(function (service) {
-            self._links.addLink(process.get("pid"), service.get("name"));
-            self.trigger("linkadded", process, service);
+        krefs.forEach((service) => {
+            this._links.addLink(process.get("pid"), service.get("name"));
+            this.trigger("linkadded", process, service);
         });
 
-        urefs.forEach(function (uref) {
-            if (!self._pendingServiceLinks[uref]) {
-                self._pendingServiceLinks[uref] = d3.set();
-            }
+        urefs.forEach((uref) => {
+            if (!this._pendingServiceLinks[uref])
+                this._pendingServiceLinks[uref] = d3.set();
 
             console.log("Pending link from " + uref + " to " + process.get("pid"));
 
-            self._pendingServiceLinks[uref].add(process.get("pid"));
+            this._pendingServiceLinks[uref].add(process.get("pid"));
         });
     };
 
     ServiceLinkHandler.prototype._onRemoveProcess = function (process) {
-        var self = this;
-
         console.log("Process " + process.get("pid") + " being removed.");
 
-        self._links.removeAll(process.get("pid"));
-        self.trigger("processremoved", process.get("pid"));
+        this._links.removeAll(process.get("pid"));
+        this.trigger("processremoved", process.get("pid"));
     };
 
     return ServiceLinkHandler;

@@ -20,81 +20,68 @@
 define(function (require) {
     "use strict";
 
-    var d3 = require("d3");
-    var Backbone = require("backbone");
-    var Linker = require("linkhandler");
-    var _ = require("underscore");
+    const Backbone = require("backbone");
+    const Linker = require("linkhandler");
+    const _ = require("underscore");
 
-    var UserServiceLinkHandler = function (processes) {
-        var self = this;
-
-        self._processes = processes;
-        self._links = new Linker.Directed();
+    const UserServiceLinkHandler = function (processes) {
+        this._processes = processes;
+        this._links = new Linker.Directed();
 
         _.extend(this, Backbone.Events);
 
-        self._processes.on("serviceadded", function () {
-            self._onNewProcessService.apply(self, arguments);
+        this._processes.on("serviceadded", (s) => {
+            this._onNewProcessService(s);
         });
 
-        self._processes.on("serviceremoved", function () {
-            self._onRemoveProcessService.apply(self, arguments);
+        this._processes.on("serviceremoved", (s) => {
+            this._onRemoveProcessService(s);
         });
 
-        self._links.on("linkadded", function () {
-            self._onLinkAdded(self, arguments);
+        this._links.on("linkadded", (f, t) => {
+            this._onLinkAdded(f, t);
         });
 
-        self._links.on("linkremoved", function () {
-            self._onLinkRemoved(self, arguments);
+        this._links.on("linkremoved", (f, t) => {
+            this._onLinkRemoved(f, t);
         });
     };
 
     UserServiceLinkHandler.prototype.getLinks = function (makeLinkCb) {
-        var self = this;
-        return self._links.getLinks(makeLinkCb);
+        return this._links.getLinks(makeLinkCb);
     };
 
     UserServiceLinkHandler.prototype.getLinksFrom = function (a, makeLinkCb) {
-        var self = this;
-        return self._links.getLinksFrom(a, makeLinkCb);
+        return this._links.getLinksFrom(a, makeLinkCb);
     };
 
     UserServiceLinkHandler.prototype._onLinkAdded = function (serviceLinks, args) {
-        var self = this;
-        var processFrom = self._processes.get(args[0]);
-        var processTo = self._processes.get(args[1]);
+        let processFrom = this._processes.get(args[0]);
+        let processTo = this._processes.get(args[1]);
 
-        self.trigger("linkadded", processFrom, processTo);
+        this.trigger("linkadded", processFrom, processTo);
     };
 
     UserServiceLinkHandler.prototype._onLinkRemoved = function (serviceLinks, args) {
-        var self = this;
-        var processFromPid = args[0];
-        var processToPid = args[1];
+        let processFromPid = args[0];
+        let processToPid = args[1];
 
-        self.trigger("linkremoved", processFromPid, processToPid);
+        this.trigger("linkremoved", processFromPid, processToPid);
     };
 
     UserServiceLinkHandler.prototype._onNewProcessService = function (userService) {
-        var self = this;
-
-        userService.clients.forEach(function (pid) {
-            if (self._processes.get(pid) !== null) {
+        userService.clients.forEach((pid) => {
+            if (this._processes.get(pid) !== null)
 
                 // Filter out self-referential service, which can be rendered.
-                if (userService.pid !== pid) {
-                    self._links.addLink(userService.pid, pid);
-                }
-            } else {
+                if (userService.pid !== pid)
+                    this._links.addLink(userService.pid, pid);
+            else
                 console.log("Target process " + pid + " unknown. Can't make user service link.");
-            }
         });
     };
 
-    UserServiceLinkHandler.prototype._onRemoveProcessService = function (userService) {
-
-    };
+    UserServiceLinkHandler.prototype._onRemoveProcessService = function (userService) {};
 
     return UserServiceLinkHandler;
 });
