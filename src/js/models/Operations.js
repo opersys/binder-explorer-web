@@ -15,7 +15,7 @@
  */
 
 define(function (require) {
-    var Backbone = require("backbone");
+    const Backbone = require("backbone");
 
     return Backbone.Collection.extend({
         url: null

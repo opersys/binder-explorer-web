@@ -17,7 +17,6 @@
 define(function (require) {
     var Backbone = require("backbone");
     var BinderService = require("models/BinderService");
-    var _ = require("underscore");
 
     return Backbone.Collection.extend({
         url: "/binder/services",
@@ -26,16 +25,13 @@ define(function (require) {
         _serviceByNodeId: {},
 
         initialize: function () {
-            var self = this;
-
-            self.on("add", function (m) {
-                self._serviceByNodeId[m.get("node")] = m;
+            this.on("add", (m) => {
+                this._serviceByNodeId[m.get("node")] = m;
             });
         },
 
         getServiceByNode: function (n) {
-            var self = this;
-            return self._serviceByNodeId[n];
+            return this._serviceByNodeId[n];
         }
     });
 });

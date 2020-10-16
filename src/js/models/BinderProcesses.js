@@ -23,14 +23,11 @@ define(function (require) {
         model: BinderProcess,
 
         initialize: function (attrs, opts) {
-            var self = this;
-
-            self._binderServices = opts.binderServices;
+            this._binderServices = opts.binderServices;
         },
 
         getServiceByNode: function (n) {
-            var self = this;
-            return self._binderServices.getServiceByNode(n);
+            return this._binderServices.getServiceByNode(n);
         }
     });
 });

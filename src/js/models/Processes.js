@@ -15,8 +15,8 @@
  */
 
 define(function (require) {
-    var Backbone = require("backbone");
-    var Process = require("models/Process");
+    const Backbone = require("backbone");
+    const Process = require("models/Process");
 
     return Backbone.Collection.extend({
         url: "/proc",

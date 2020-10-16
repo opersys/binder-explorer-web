@@ -15,13 +15,12 @@
  */
 
 define(function (require) {
-    var Backbone = require("backbone");
-    var _ = require("underscore");
+    const Backbone = require("backbone");
 
     return Backbone.Model.extend({
 
         execute: function () {
-            var callback, context;
+            let callback, context;
 
             if (!this.has("callback"))
                 throw "Incorrectly defined function: missing callback";
@@ -31,7 +30,7 @@ define(function (require) {
             callback = this.get("callback");
             context = this.get("context");
 
-            if (!callback || !_.isFunction(callback))
+            if (!callback || callback && {}.toString.call(callback) === '[object Function]')
                 throw "Incorrectly defined function: callback not a function";
 
             callback.apply(context);

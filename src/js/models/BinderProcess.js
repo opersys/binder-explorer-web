@@ -15,70 +15,53 @@
  */
 
 define(function (require) {
-    var Backbone = require("backbone");
-    var Process = require("models/Process");
-    var _ = require("underscore");
+    const Backbone = require("backbone");
 
     return Backbone.Model.extend({
         idAttribute: "pid",
 
         initialize: function () {
-            var self = this;
-
-            self.set("services", []);
+            this.set("services", []);
         },
 
         getDomId: function () {
-            var self = this;
-            return "pid_" + self.get("pid");
+            return "pid_" + this.get("pid");
         },
 
         // Try to get a friendly name for a process using its command line.
         getFriendlyName: function () {
-            var self = this;
-
-            if (self.get("process").get("cmdline") !== null) {
-                return self.get("process").get("cmdline")[0];
-            }
+            if (this.get("process").get("cmdline") !== null)
+                return this.get("process").get("cmdline")[0];
 
             // Fallback on just the PID.
-            return self.get("pid");
+            return this.get("pid");
         },
 
         addUserService: function (userService) {
-            var self = this;
-            var currentServices = self.get("services");
+            let currentServices = this.get("services");
 
-            if (!_.some(currentServices, function (cs) {
-                    return userService.intent === cs.intent;
-                })) {
+            if (!currentServices.some((cs) => userService.intent == cs.intent)) {
                 currentServices.push(userService);
-                self.set("services", currentServices);
-
+                this.set("services", currentServices);
                 this.trigger("serviceadded", userService);
             }
         },
 
         removeUserService: function (userService) {
-            var self = this;
-            var currentServices = self.get("services");
+            let currentServices = this.get("services");
 
-            self.set("services", _.reject(currentServices, function (cs) {
-                return userService.intent === cs.intent;
-            }));
-
+            this.set("services", currentServices.filter(() => userService.intent !== cs.intent));
             this.trigger("serviceremoved", userService);
         },
 
         getServiceRefs: function () {
-            var self = this, serviceRefs = [], unknownRefs = [], i;
+            let serviceRefs = [], unknownRefs = [], i;
 
-            _.each(self.get("refs"), function (ref) {
-                if ((i = self.collection.getServiceByNode(ref.node))) {
+            this.get("refs").forEach((ref) => {
+                if ((i = this.collection.getServiceByNode(ref.node)))
                     serviceRefs.push(i);
-                } else {
+                else
                     unknownRefs.push(ref.node);
-                }
             });
 
             return { knownRefs: serviceRefs, unknownRefs: unknownRefs };

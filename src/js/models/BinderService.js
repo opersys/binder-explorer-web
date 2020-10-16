@@ -23,8 +23,7 @@ define(function (require) {
         initialize: function () {},
 
         getDomId: function () {
-            var self = this;
-            return "service_" + self.get("name").replace(/\./g, "_");
+            return "service_" + this.get("name").replace(/\./g, "_");
         }
     });
 });
