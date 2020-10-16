@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2018 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ define(function (require) {
     ServiceLinkHandler.prototype._onNewService = function (service) {
         var self = this;
 
-        console.log("Service " + service.get("name") + " being added.");
+        console.log("Service " + service.get("name") + " [Node: " + service.get("node") + "]" + " being added.");
 
         // Notify the that a service was added.
         self.trigger("serviceadded", service);
@@ -98,6 +98,8 @@ define(function (require) {
                 var process = self._processes.get(processPid);
                 self._links.addLink(process.get("pid"), service.get("name"));
                 self.trigger("linkadded", process, service);
+
+                console.log("Resolved pending link from " + service.get("node") + " to " + process.get("pid"));
             });
         }
     };
@@ -121,6 +123,9 @@ define(function (require) {
             if (!self._pendingServiceLinks[uref]) {
                 self._pendingServiceLinks[uref] = d3.set();
             }
+
+            console.log("Pending link from " + uref + " to " + process.get("pid"));
+
             self._pendingServiceLinks[uref].add(process.get("pid"));
         });
     };
