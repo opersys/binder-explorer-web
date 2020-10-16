@@ -33,7 +33,7 @@
     "grunt-contrib-handlebars": "0.10.2",
     "grunt-exec": "*",
     "grunt-mkdir": "*",
-    "handlebars": "3.0.3",
+    "handlebars": "4.7.6",
     "intern": "^3.0.0",
     "md5-file": "^2.0.4",
     "tarball-extract": "0.0.6"
