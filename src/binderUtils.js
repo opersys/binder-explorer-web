@@ -17,7 +17,6 @@
 const fs = require("fs");
 const path = require("path");
 const cp = require("child_process");
-const _ = require("underscore");
 const debug = require("debug")("be:utils");
 const ChildProcess = require("child_process");
 const process = require("process");
@@ -25,55 +24,20 @@ const readline = require("readline");
 
 const ServiceManager = require("./ServiceManager.js");
 
-var requests = {};
-var sm = new ServiceManager.ServiceManager();
+let requests = {};
+let sm = new ServiceManager.ServiceManager();
 
-var readAllBinderProcFiles = function (resultCb) {
-    var results = {},
-        queue = Queue();
-
-    queue.on("end", function () {
-        resultCb(results);
-    });
-
-    fs.readdir("/dev/binderfs/binder_logs/proc", function (err, files) {
-        for (var i in files) {
-            (function (file, results) {
-                queue.push(function (queueCb) {
-                    var procFile = path.join("/dev/binderfs/binder_logs/proc", file);
-
-                    fs.exists(procFile, function (exists) {
-                        if (exists) {
-                            readBinderProcFile(file,
-                                               function (procData) {
-                                                   results[file] = procData;
-                                                   queueCb();
-                                               },
-                                               // Ignore read errors there. Just handle the missing process later on.
-                                               function (err) { });
-                        } else {
-                            console.log("Process file " + file + " does not exists.");
-                        }
-                    });
-                });
-            })(files[i], results);
-        }
-
-        queue.start();
-    });
-};
-
-var readBinderStateFile = function (successCallback, errorCallback) {
-    var stateFile = "/dev/binderfs/binder_logs/state",
+let readBinderStateFile = (successCallback, errorCallback) => {
+    let stateFile = "/dev/binderfs/binder_logs/state",
         stateData = {},
         currentProc = null,
         liner = readline.createInterface(fs.createReadStream(stateFile));
 
     liner.on("line", function (line) {
-        var dataLine = _.filter(line.trim().split(" "), function (item) {
+        let dataLine = line.trim().split(" ").filter((item) => {
             return item !== "";
         });
-        var dataLineType = dataLine.shift();
+        let dataLineType = dataLine.shift();
 
         if (dataLineType == "proc") {
             currentProc = dataLine.shift();
@@ -85,7 +49,7 @@ var readBinderStateFile = function (successCallback, errorCallback) {
             stateData[currentProc].nodes = [];
         }
         else if (currentProc && dataLineType === "thread") {
-            var threadInfo = {};
+            let threadInfo = {};
 
             threadInfo.id = dataLine.shift().replace(":", "");
             while (dataLine.length > 0) {
@@ -95,7 +59,7 @@ var readBinderStateFile = function (successCallback, errorCallback) {
             stateData[currentProc].threads.push(threadInfo);
         }
         else if (currentProc && dataLineType === "ref") {
-            var refInfo = {};
+            let refInfo = {};
 
             refInfo.id = dataLine.shift().replace(":", "");
 
@@ -113,7 +77,7 @@ var readBinderStateFile = function (successCallback, errorCallback) {
             stateData[currentProc].refs.push(refInfo);
 
         } else if (currentProc && dataLineType === "node") {
-            var nodeInfo = {};
+            let nodeInfo = {};
 
             nodeInfo.id = dataLine.shift().replace(":", "");
 
@@ -129,13 +93,13 @@ var readBinderStateFile = function (successCallback, errorCallback) {
         }
     });
 
-    liner.on("close", function () {
+    liner.on("close", () => {
         return successCallback(stateData);
     });
 };
 
-var readBinderProcFile = function (pid, successCallback, errorCallback) {
-    var procFile, procData;
+let readBinderProcFile = (pid, successCallback, errorCallback) => {
+    let procFile, procData;
 
     procFile = path.join("/dev/binderfs/binder_logs/proc", pid);
     procData = {};
@@ -145,7 +109,7 @@ var readBinderProcFile = function (pid, successCallback, errorCallback) {
     procData.refs = [];
     procData.nodes = [];
 
-    fs.readFile(procFile, function (err, data) {
+    fs.readFile(procFile, (err, data) => {
         if (err) {
             if (errorCallback)
                 return errorCallback(err);
@@ -153,19 +117,19 @@ var readBinderProcFile = function (pid, successCallback, errorCallback) {
                 throw "readBinderProcFile error: " + err;
         }
 
-        var dataLines = data.toString().split("\n");
+        let dataLines = data.toString().split("\n");
 
         // Remove the first 2 lines: we already know them
         dataLines.splice(0, 2);
 
-        for (var j = 0; j < dataLines.length; j++) {
-            var dataLine = _.filter(dataLines[j].trim().split(" "), function (item) {
+        for (let j = 0; j < dataLines.length; j++) {
+            let dataLine = dataLines[j].trim().split(" ").filter((item) => {
                 return item != "";
             });
-            var dataLineType = dataLine.shift();
+            let dataLineType = dataLine.shift();
 
             if (dataLineType == "thread") {
-                var threadInfo = {};
+                let threadInfo = {};
 
                 threadInfo.id = dataLine.shift().replace(":", "");
                 while (dataLine.length > 0) {
@@ -175,7 +139,7 @@ var readBinderProcFile = function (pid, successCallback, errorCallback) {
                 procData.threads.push(threadInfo);
             }
             else if (dataLineType == "ref") {
-                var refInfo = {};
+                let refInfo = {};
 
                 refInfo.id = dataLine.shift().replace(":", "");
 
@@ -193,7 +157,7 @@ var readBinderProcFile = function (pid, successCallback, errorCallback) {
                 procData.refs.push(refInfo);
 
             } else if (dataLineType == "node") {
-                var nodeInfo = {};
+                let nodeInfo = {};
 
                 nodeInfo.id = dataLine.shift().replace(":", "");
 
@@ -216,7 +180,7 @@ var readBinderProcFile = function (pid, successCallback, errorCallback) {
 // Calls for findServiceNodeId MUST be serialized and no other
 // Binder calls should be done within the same process.
 
-var findServiceNodeId = (serviceName, resultCb) => {
+let findServiceNodeId = (serviceName, resultCb) => {
     let knownNodes = [];
     let self = this;
 
@@ -224,38 +188,35 @@ var findServiceNodeId = (serviceName, resultCb) => {
 
     sg.on("statusChange", (newStatus) => {
         if (newStatus == ServiceManager.GRAB_OK) {
-            readBinderStateFile(
-                function (stateData) {
-                    var currentNodes = [], newNodes, newNode, iface;
-                    var procData = stateData[sg.pid];
+            readBinderStateFile((stateData) => {
+                let currentNodes = [], newNodes, newNode, iface;
+                let procData = stateData[sg.pid];
 
-                    for (var ref in procData.refs) {
-                        if (procData.refs[ref].node != 1) {
-                            currentNodes.push(procData.refs[ref].node);
-                        }
+                for (let ref in procData.refs) {
+                    if (procData.refs[ref].node != 1) {
+                        currentNodes.push(procData.refs[ref].node);
                     }
+                }
 
-                    newNodes = [].concat(_.difference(currentNodes, knownNodes));
-                    sg.release();                    
-                    
-                    while (newNodes.length > 0) {
-                        newNode = newNodes.pop();
-                        knownNodes = currentNodes;
+                newNodes = [].concat(currentNodes.filter(x => !knownNodes.includes(x)));
+                sg.release();
 
-                        iface = sm.getService(serviceName).interface;
+                while (newNodes.length > 0) {
+                    newNode = newNodes.pop();
+                    knownNodes = currentNodes;
 
-                        /**
-                         * FIXME: Node 2 is assumed to be the service manager.
-                         */
-                        if (newNode == 2) continue;
+                    iface = sm.getService(serviceName).interface;
 
-                        resultCb(newNode, iface);
-                    }
-                },
+                    /**
+                     * FIXME: Node 2 is assumed to be the service manager.
+                     */
+                    if (newNode == 2) continue;
 
-                function (/*err*/) {
-                    resultCb(null, null);
-                });
+                    resultCb(newNode, iface);
+                }
+            }, (/*err*/) => {
+                resultCb(null, null);
+            });
         } else {
             // We couldn't grab the service for some reason.
             resultCb(null, null);
@@ -266,6 +227,5 @@ var findServiceNodeId = (serviceName, resultCb) => {
 module.exports = {
     readBinderStateFile: readBinderStateFile,
     readBinderProcFile: readBinderProcFile,
-    readAllBinderProcFiles: readAllBinderProcFiles,
     findServiceNodeId: findServiceNodeId
 };

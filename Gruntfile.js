@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-var path = require("path");
-var _ = require("underscore");
+const path = require("path");
 
 module.exports = function (grunt) {
 
@@ -31,9 +30,9 @@ module.exports = function (grunt) {
         pkg: grunt.file.readJSON("package.json")
     });
 
-    _.each(["arm", "arm64", "ia32", "x86_64"], function (arch) {
+    ["arm", "arm64", "ia32", "x86_64"].forEach((arch) => {
 
-        var mkdist = function (arch) {
+        let mkdist = function (arch) {
             return function () {
                 var args = Array.prototype.slice.call(arguments);
                 return path.join.apply(this, ["dist_" + arch].concat(args));
