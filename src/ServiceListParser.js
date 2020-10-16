@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ class ServiceListParser {
         this._state = _NEUTRAL;
         this._services = [];
         this._currentService = {};
-        this._currentBindingRecord = {};        
+        this._currentBindingRecord = {};
     }
 
     simplify(s) {
@@ -77,12 +77,12 @@ class ServiceListParser {
             pkg: s.packageName,
             clients: []
         };
-        
+
         s.bindingRecords.forEach(function (br) {
             if (br.client) ss.clients.push(br.client.pid);
         });
 
-        return ss;        
+        return ss;
     }
 
     getServicesForPid(pid) {
@@ -92,12 +92,12 @@ class ServiceListParser {
     parsePr(prValue) {
         if (prValue === "null")
             return {};
-        
+
         let pr = prValue.match(/ProcessRecord{.* ([0-9]*):(.*)\/.*}/);
         let pid = pr[1];
         let nm = pr[2];
-        
-        return { "name": nm, "pid": pid };        
+
+        return { "name": nm, "pid": pid };
     }
 
     parseVar(varLine) {
@@ -106,16 +106,16 @@ class ServiceListParser {
         let varName = varLine.shift();
         let varValue = varLine.join("=");
 
-        return {"name": varName, "value": varValue};        
+        return {"name": varName, "value": varValue};
     }
 
     parseCrLine(crLine) {
         let m = crLine.match(/Client AppBindRecord{.* (ProcessRecord{.*}})/);
-        
+
         if (m)
             return this.parsePr(m[1]);
         else
-            return "unknown";        
+            return "unknown";
     }
 
     parseBrLine(brLine) {
@@ -132,7 +132,7 @@ class ServiceListParser {
                 v = this.parseVar(vs);
                 this._currentBindingRecord[v.name] = v.value;
             }
-        }        
+        }
     }
 
     parseSrLine(srLine) {
@@ -145,7 +145,7 @@ class ServiceListParser {
                 this._currentService[v.name] = this.parsePr(v.value);
             else
                 this._currentService[v.name] = v.value;
-            
+
         } else if (srLine.match(/^createTime|^lastActivity|^startRequested/)) {
             var vs, vl = srLine.split(/ /);
 
@@ -153,7 +153,7 @@ class ServiceListParser {
                 v = this.parseVar(vs);
                 this._currentService[v.name] = v.value;
             }
-        }        
+        }
     }
 
     parseOutput(output) {
@@ -208,7 +208,7 @@ class ServiceListParser {
                 this._currentService.bindingRecords = [];
             }
         }
-        
+
     }
 }
 

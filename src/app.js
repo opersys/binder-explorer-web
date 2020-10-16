@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,12 +28,15 @@ const cache = require("js-cache");
 const debug = require("debug")("be");
 const SocketIO = require("socket.io");
 const domain = require("domain");
+const process = require("process");
 
 // Local modules
 const BinderUtils = require("./binderUtils.js");
 const BinderWatcher = require("./binderWatcher.js");
 const DataFeeder = require("./dataFeeder.js");
 const ServiceManager = require("./ServiceManager.js");
+const PackageManager = require("./PackageManager.js");
+const ActivityManager = require("./ActivityManager.js");
 
 // Express application
 const app = express();
@@ -140,7 +143,7 @@ function fetchIcon (pkg, options) {
 
         req.on("error", (err) => {
             debug("Request /icon/" + pkg + " error: " + err.message);
-            
+
             if (hasDefault) {
                 imgBuf = imgCache.get("default");
                 if (options.success) options.success(imgBuf);
@@ -399,6 +402,25 @@ io.on("connection", (sock) => {
     });
 });
 
+// Make sure the backend service is available
+let pm = new PackageManager();
+let am = new ActivityManager();
+
+if (!pm.isInstalled("com.opersys.infolauncher")) {
+    let file = path.join(process.cwd(), "_bin", "infolauncher.apk");
+
+    debug("Installing " + file);
+
+    // Install the infolauncher.
+    pm.install(file);
+}
+else debug("InfoLauncher service already installed");
+
+// Start the InfoLauncher service
+am.startForegroundService("com.opersys.infolauncher/.InfoLauncherService");
+debug("InfoLauncher started (or already started)");
+
+// Ready for input
 io.listen(server);
 binderWatcher.start();
 server.listen(app.get("port"), () => {});
