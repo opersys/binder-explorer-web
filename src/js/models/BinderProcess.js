@@ -54,10 +54,10 @@ define(function (require) {
             this.trigger("serviceremoved", userService);
         },
 
-        getServiceRefs: function () {
+        getServiceRefs: function (binderName) {
             let serviceRefs = [], unknownRefs = [], i;
 
-            this.get("refs").forEach((ref) => {
+            this.get(binderName)["refs"].forEach((ref) => {
                 if ((i = this.collection.getServiceByNode(ref.node)))
                     serviceRefs.push(i);
                 else

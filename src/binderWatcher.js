@@ -56,9 +56,10 @@ class BinderWatcher extends EventEmitter {
     }
 
     dumpServices(resultCb, errorCb) {
-        let proc, buf;        
+        let proc, buf;
 
         proc = cp.spawn("dumpsys", ["activity", "services"], {stdio: ["ignore", "pipe", "ignore"]});
+
         if (proc.stdout) {
             proc.stdout.on("data", (data) => {
                 if (!buf)
@@ -76,15 +77,13 @@ class BinderWatcher extends EventEmitter {
     }
 
     scanProcessServices() {
-        var dumpOut;
-
         // If the activty service isn't there, this won't work at all.
         if (!this._serviceManager.getService("activity"))
             return;
 
         this.dumpServices(() => {
             Object.values(this._binderProcesses).map((bproc) => {
-                var svcs = this._serviceListParser.getServicesForPid(bproc.pid);
+                let svcs = this._serviceListParser.getServicesForPid(bproc.pid);
 
                 if (!this._userProcesses[bproc.pid]) {
                     this._userProcesses[bproc.pid] = {
@@ -97,7 +96,7 @@ class BinderWatcher extends EventEmitter {
                     svcs.forEach((svc) => {
                         if (!this._userProcesses[svc.pid].services.some((bsvc) => bsvc.intent === svc.intent)) {
                             this._userProcesses[svc.pid].services.push(svc);
-                            this._userProcesses[svc.pid].pid = svc.pid;                        
+                            this._userProcesses[svc.pid].pid = svc.pid;
                             this.emit("onProcessServiceAdded", svc);
                         }
                     });
@@ -112,10 +111,10 @@ class BinderWatcher extends EventEmitter {
                 }
             });
 
-            setTimeout(() => { this.scanProcessServices(); }, 1000);            
+            setTimeout(() => { this.scanProcessServices(); }, 1000);
         }, () => {
             debug("Cannot get user processes");
-        });        
+        });
     }
 
     scanBinderServices() {
@@ -126,12 +125,12 @@ class BinderWatcher extends EventEmitter {
 
         diff = newlist.filter(x => !oldlist.includes(x));
 
-        this.preloadBinderServiceData((binderProcs, binderProcsByNode) => {
+        this.preloadBinderServiceData((binderData, binderProcsByNode) => {
             async.eachLimit(diff, 10, (added, callback) => {
-                
+
                 debug("Looking for service: " + added);
-                
-                this.readBinderServiceData(added, binderProcs, binderProcsByNode,
+
+                this.readBinderServiceData(added, "binder", binderProcsByNode,
                                            (service) => {
                                                this.emit("onServiceData", service);
                                                callback();
@@ -146,10 +145,10 @@ class BinderWatcher extends EventEmitter {
 
     scanBinderProcesses() {
         let newlist, oldlist, addedlist, removedlist;
-        
-        BinderUtils.readBinderStateFile((newBinderProcs) => {
+
+        BinderUtils.readBinderStateFile((binderData) => {
             oldlist = Object.keys(this._binderProcesses);
-            newlist = Object.keys(newBinderProcs);
+            newlist = Object.keys(binderData);
 
             addedlist = newlist.filter(x => !oldlist.includes(x));
             removedlist = oldlist.filter(x => !newlist.includes(x));
@@ -162,6 +161,7 @@ class BinderWatcher extends EventEmitter {
 
             if (addedlist.length > 0 || removedlist.length > 0)
                 debug("Done scanning binder processes: " + addedlist.length + " added, " + removedlist.length + " removed");
+
             async.each(addedlist, (added, eachCallback) => {
                 this.readBinderProcessData(added, (process) => {
                     this.emit("onProcessAdded", process);
@@ -174,16 +174,16 @@ class BinderWatcher extends EventEmitter {
 
             removedlist.forEach((removed) => {
                 delete this._binderProcesses[removed];
-                this.emit("onProcessRemoved", removed);                            
+                this.emit("onProcessRemoved", removed);
             });
-            
+
             setTimeout(() => { this.scanBinderProcesses(); }, 1000);
         });
     };
 
     readBinderProcessData(binderProcId, successCallback, errorCallback) {
         let binderProcess = {};
-        
+
         async.waterfall([(next) => {
             BinderUtils.readBinderStateFile((binderProcs) => {
                 if (binderProcs[binderProcId]) {
@@ -208,7 +208,7 @@ class BinderWatcher extends EventEmitter {
                     }
                     else next("grabservice");
                 }
-            }, {fields: pslook.CMD });            
+            }, {fields: pslook.CMD });
         }, (next) => {
             // Properly add the process to the list.
             this._binderProcesses[binderProcId] = binderProcess;
@@ -226,28 +226,32 @@ class BinderWatcher extends EventEmitter {
     }
 
     preloadBinderServiceData(preloadCallback) {
-        BinderUtils.readBinderStateFile((binderProcs) => {
-            var binderProcsByNode = {};
+        BinderUtils.readBinderStateFile((binderData) => {
+            let binderProcsByNode = {};
 
             debug("Preloaded services data");
 
-            Object.keys(binderProcs).forEach((binderPid) => {
-                binderProcs[binderPid].nodes.forEach((nodeData) => {
-                    binderProcsByNode[nodeData.id] = {};
-                    binderProcsByNode[nodeData.id] = binderProcs[binderPid];
-                    binderProcsByNode[nodeData.id].node = nodeData.id;
-                    binderProcsByNode[nodeData.id].pid = binderPid;
+            Object.keys(binderData).forEach((binderPid) => {
+                ["binder", "hwbinder", "vndbinder"].forEach((binderName) => {
+                    if (binderData[binderPid][binderName]) {
+                        binderData[binderPid][binderName].nodes.forEach((nodeData) => {
+                            binderProcsByNode[nodeData.id] = {};
+                            binderProcsByNode[nodeData.id] = binderData[binderPid];
+                            binderProcsByNode[nodeData.id].node = nodeData.id;
+                            binderProcsByNode[nodeData.id].pid = binderPid;
+                        });
+                    }
                 });
             });
 
-            preloadCallback(binderProcs, binderProcsByNode);
+            preloadCallback(binderData, binderProcsByNode);
         });
     }
 
-    readBinderServiceData(serviceName, binderProces, binderProcsByNode, successCallback, errorCallback) {
+    readBinderServiceData(serviceName, binderName, binderProcsByNode, successCallback, errorCallback) {
         try {
             async.waterfall([(next) => {
-                BinderUtils.findServiceNodeId(serviceName, (node, iface) => {
+                BinderUtils.findServiceNodeId(serviceName, binderName, (node, iface) => {
                     if (binderProcsByNode[node] == null)
                         next(null, null);
                     else {
@@ -281,7 +285,7 @@ class BinderWatcher extends EventEmitter {
         });
         } catch (err) {
             if (errorCallback) errorCallback(err);
-        }        
+        }
     }
 }
 

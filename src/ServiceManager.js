@@ -19,7 +19,6 @@
 
 const util = require("util");
 const cp = require("child_process");
-const _ = require("underscore");
 const EventEmitter = require("events");
 const path = require("path");
 const process = require("process");
@@ -93,8 +92,11 @@ class ServiceGrab extends EventEmitter {
 
 class ServiceManager {
 
-    constructor() {
-        let proc = cp.spawnSync("service", ["list"],);
+    constructor(serviceCmd = null) {
+        if (!serviceCmd)
+            serviceCmd = "service";
+
+        let proc = cp.spawnSync(serviceCmd, ["list"],);
 
         this._grabs = {};
         this._services = {};
@@ -134,9 +136,31 @@ class ServiceManager {
      * Return the list of all service objects.
      */
     all() {
-        return _.values(this._services);
+        return Object.values(this._services);
     }
 };
+
+class HwServiceManager {
+    constructor() {
+        let proc = cp.spawnSync("lshal", ["--neat"]);
+
+        this._grabs = {};
+        this._services = {};
+        this._firstLine = true;
+
+        let lines = proc.stdout.toString().split(/\n/);
+
+        lines.forEach((line) => {
+            if (line) this._parseLine(line);
+        });
+    }
+}
+
+class VncServiceManager extends ServiceManager {
+    constructor() {
+        super("vndservice");
+    }
+}
 
 module.exports = {
     "ServiceManager": ServiceManager,

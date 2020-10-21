@@ -97,7 +97,7 @@ define(function (require) {
     };
 
     ServiceLinkHandler.prototype._onNewProcess = function (process) {
-        let srefs = process.getServiceRefs();
+        let srefs = process.getServiceRefs("binder");
         let krefs = srefs.knownRefs;
         let urefs = srefs.unknownRefs;
 

@@ -16,7 +16,6 @@
 
 "use strict";
 
-const _ = require("underscore");
 const async = require("async");
 const express = require("express");
 const exStatic = require("serve-static");
@@ -297,69 +296,87 @@ app.get("/proc/:pid", (req, res) => {
     });
 });
 
-app.get("/binder/procs", (req, res) => {
-    try {
-        BinderUtils.readBinderStateFile((binderProcs) => {
-            res.json(_.map(_.keys(binderProcs), (binderProcPid) => {
-                return { pid: binderProcPid  };
-            }));
-        });
-    } catch (ex) {
-        res.status(404).send();
-    }
-});
+function getBinderProcs(binderName) {
+    return (req, res) => {
+        try {
+            BinderUtils.readBinderStateFile((binderData) => {
+                res.json(Object.keys(binderData[binderName]).map((binderProcPid) => {
+                    return { pid: binderProcPid  };
+                }));
+            });
+        } catch (ex) {
+            res.status(404).send();
+        }
+    };
+}
 
-app.get("/binder/procs/:pid([0-9]+)", (req, res) => {
-    try {
-        BinderUtils.readBinderStateFile((binderProcs) => {
-            if (binderProcs[req.params.pid])
-                res.json(binderProcs[req.params.pid]);
-            else
-                res.status(404).send();
-        });
-    } catch (ex) {
-        res.status(404).send();
-    }
-});
+function getBinderProc(binderName) {
+    return (req, res) => {
+        try {
+            BinderUtils.readBinderStateFile((binderProcs) => {
+                if (binderProcs[req.params.pid])
+                    res.json(binderProcs[req.params.pid]);
+                else
+                    res.status(404).send();
+            });
+        } catch (ex) {
+            res.status(404).send();
+        }
+    };
+}
 
-app.get("/binder/services/:serviceName", (req, res) => {
-    try {
-        // Make a catalog of node IDs to PID because findServiceNodeId doesn't provide
-        // us with the PID.
-        BinderUtils.readBinderStateFile((binderProcs) => {
-            var binderProcsByNode = {};
+function getBinderService(binderName) {
+    return (req, res) => {
+        try {
+            // Make a catalog of node IDs to PID because findServiceNodeId doesn't provide
+            // us with the PID.
+            BinderUtils.readBinderStateFile(function (binderData) {
+                var binderProcsByNode = {};
 
-            _.each(_.keys(binderProcs), (binderPid) => {
-                _.each(binderProcs[binderPid].nodes, (nodeData) => {
-                    binderProcsByNode[nodeData.id] = {};
-                    binderProcsByNode[nodeData.id] = binderProcs[binderPid];
-                    binderProcsByNode[nodeData.id].node = nodeData.id;
-                    binderProcsByNode[nodeData.id].pid = binderPid;
+                Object.keys(binderData[binderName]).forEach((binderPid) => {
+                    binderData[binderName][binderPid].nodes.forEach((nodeData) => {
+                        binderProcsByNode[nodeData.id] = {};
+                        binderProcsByNode[nodeData.id] = binderData[binderName][binderPid];
+                        binderProcsByNode[nodeData.id].node = nodeData.id;
+                        binderProcsByNode[nodeData.id].pid = binderPid;
+                    });
+                });
+
+                BinderUtils.findServiceNodeId(app.get("directory"), req.params.serviceName, (node, iface) => {
+                    var response = {};
+
+                    if (!node && !iface)
+                        res.json(response);
+                    else {
+                        if (iface) response.iface = iface;
+
+                        response.node = node;
+                        response.pid = binderProcsByNode[node].pid;
+
+                        res.json(response);
+                    }
                 });
             });
+        } catch (ex) {
+            res.status(404).send();
+        }
+    };
+}
 
-            BinderUtils.findServiceNodeId(app.get("directory"), req.params.serviceName, (node, iface) => {
-                var response = {};
+app.get("/binder/procs", getBinderProcs("binder"));
+app.get("/hwbinder/procs", getBinderProcs("hwbinder"));
+app.get("/vndbinder/procs", getBinderProcs("vndbinder"));
 
-                if (!node && !iface)
-                    res.json(response);
-                else {
-                    if (iface) response.iface = iface;
+app.get("/binder/procs/:pid([0-9]+)", getBinderProc("binder"));
+app.get("/hwbinder/procs/:pid([0-9]+)", getBinderProc("hwbinder"));
+app.get("/vndbinder/procs/:pid([0-9]+)", getBinderProc("vndbinder"));
 
-                    response.node = node;
-                    response.pid = binderProcsByNode[node].pid;
-
-                    res.json(response);
-                }
-            });
-        });
-    } catch (ex) {
-        res.status(404).send();
-    }
-});
+app.get("/binder/services/:serviceName", getBinderService("binder"));
+app.get("/hwbinder/services/:serviceName", getBinderService("hwbinder"));
+app.get("/vndbinder/services/:serviceName", getBinderService("vndbinder"));
 
 app.get("/binder/services", (req, res) => {
-    res.json(_.map(serviceManager.all(), (service) => {
+    res.json(serviceManager.all().map((service) => {
         return { name: service.name };
     }));
 });

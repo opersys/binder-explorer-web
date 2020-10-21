@@ -31,6 +31,8 @@ let readBinderStateFile = (successCallback, errorCallback) => {
     let stateFile = "/dev/binderfs/binder_logs/state",
         stateData = {},
         currentProc = null,
+        currentContext = null,
+        isdeadnodes = false,
         liner = readline.createInterface(fs.createReadStream(stateFile));
 
     liner.on("line", function (line) {
@@ -39,26 +41,39 @@ let readBinderStateFile = (successCallback, errorCallback) => {
         });
         let dataLineType = dataLine.shift();
 
-        if (dataLineType == "proc") {
+        // Start of dead nodes
+        if (line === "dead nodes:")
+            isdeadnodes = true;
+
+        if (isdeadnodes && (dataLineType === "node" || dataLineType == "dead"))
+            return;
+        else if (isdeadnodes && dataLineType == "proc")
+            isdeadnodes = false;
+
+        if (dataLineType === "proc") {
             currentProc = dataLine.shift();
 
             stateData[currentProc] = {};
             stateData[currentProc].pid = currentProc;
-            stateData[currentProc].threads = [];
-            stateData[currentProc].refs = [];
-            stateData[currentProc].nodes = [];
         }
-        else if (currentProc && dataLineType === "thread") {
+        else if (currentProc && dataLineType === "context") {
+            currentContext = dataLine.shift();
+
+            stateData[currentProc][currentContext] = {};
+            stateData[currentProc][currentContext].threads = [];
+            stateData[currentProc][currentContext].refs = [];
+            stateData[currentProc][currentContext].nodes = [];
+        }
+        else if (currentContext && currentProc && dataLineType === "thread") {
             let threadInfo = {};
 
             threadInfo.id = dataLine.shift().replace(":", "");
-            while (dataLine.length > 0) {
+            while (dataLine.length > 0)
                 threadInfo[dataLine.shift()] = dataLine.shift();
-            }
 
-            stateData[currentProc].threads.push(threadInfo);
+            stateData[currentProc][currentContext].threads.push(threadInfo);
         }
-        else if (currentProc && dataLineType === "ref") {
+        else if (currentContext && currentProc && dataLineType === "ref") {
             let refInfo = {};
 
             refInfo.id = dataLine.shift().replace(":", "");
@@ -70,13 +85,12 @@ let readBinderStateFile = (successCallback, errorCallback) => {
             } else
                 refInfo.isdead = false;
 
-            while (dataLine.length > 0) {
+            while (dataLine.length > 0)
                 refInfo[dataLine.shift()] = dataLine.shift();
-            }
 
-            stateData[currentProc].refs.push(refInfo);
+            stateData[currentProc][currentContext].refs.push(refInfo);
 
-        } else if (currentProc && dataLineType === "node") {
+        } else if (currentContext && currentProc && dataLineType === "node") {
             let nodeInfo = {};
 
             nodeInfo.id = dataLine.shift().replace(":", "");
@@ -85,11 +99,10 @@ let readBinderStateFile = (successCallback, errorCallback) => {
             // I don't know what they are.
             nodeInfo.data = [dataLine.shift(), dataLine.shift()];
 
-            while (dataLine.length > 0) {
+            while (dataLine.length > 0)
                 nodeInfo[dataLine.shift()] = dataLine.shift();
-            }
 
-            stateData[currentProc].nodes.push(nodeInfo);
+            stateData[currentProc][currentContext].nodes.push(nodeInfo);
         }
     });
 
@@ -105,6 +118,7 @@ let readBinderProcFile = (pid, successCallback, errorCallback) => {
     procData = {};
 
     procData.pid = pid;
+    procData.contexts = {};
     procData.threads = [];
     procData.refs = [];
     procData.nodes = [];
@@ -127,34 +141,40 @@ let readBinderProcFile = (pid, successCallback, errorCallback) => {
                 return item != "";
             });
             let dataLineType = dataLine.shift();
+            let currentContext;
 
-            if (dataLineType == "thread") {
+            if (dataLineType == "context") {
+                currentContext = dataLine.shift();
+
+                procData[currentContext].threads = [];
+                procData[currentContext].refs = [];
+                procData[currentContext].nodes = [];
+            }
+            else if (dataLineType == "thread") {
                 let threadInfo = {};
 
                 threadInfo.id = dataLine.shift().replace(":", "");
-                while (dataLine.length > 0) {
+                while (dataLine.length > 0)
                     threadInfo[dataLine.shift()] = dataLine.shift();
-                }
 
-                procData.threads.push(threadInfo);
+                procData[currentContext].threads.push(threadInfo);
             }
             else if (dataLineType == "ref") {
                 let refInfo = {};
 
                 refInfo.id = dataLine.shift().replace(":", "");
-
                 refInfo[dataLine.shift()] = dataLine.shift();
+
                 if (dataLine[0] == "dead") {
                     dataLine.shift();
                     refInfo.isdead = true;
                 } else
                     refInfo.isdead = false;
 
-                while (dataLine.length > 0) {
+                while (dataLine.length > 0)
                     refInfo[dataLine.shift()] = dataLine.shift();
-                }
 
-                procData.refs.push(refInfo);
+                procData[currentContext].refs.push(refInfo);
 
             } else if (dataLineType == "node") {
                 let nodeInfo = {};
@@ -165,11 +185,10 @@ let readBinderProcFile = (pid, successCallback, errorCallback) => {
                 // I don't know what they are.
                 nodeInfo.data = [dataLine.shift(), dataLine.shift()];
 
-                while (dataLine.length > 0) {
+                while (dataLine.length > 0)
                     nodeInfo[dataLine.shift()] = dataLine.shift();
-                }
 
-                procData.nodes.push(nodeInfo);
+                procData[currentContext].nodes.push(nodeInfo);
             }
         }
 
@@ -180,23 +199,19 @@ let readBinderProcFile = (pid, successCallback, errorCallback) => {
 // Calls for findServiceNodeId MUST be serialized and no other
 // Binder calls should be done within the same process.
 
-let findServiceNodeId = (serviceName, resultCb) => {
+let findServiceNodeId = (serviceName, binderName, resultCb) => {
     let knownNodes = [];
-    let self = this;
-
     let sg = sm.grabService(serviceName);
 
     sg.on("statusChange", (newStatus) => {
         if (newStatus == ServiceManager.GRAB_OK) {
-            readBinderStateFile((stateData) => {
+            readBinderStateFile((binderData) => {
                 let currentNodes = [], newNodes, newNode, iface;
-                let procData = stateData[sg.pid];
+                let procData = binderData[sg.pid];
 
-                for (let ref in procData.refs) {
-                    if (procData.refs[ref].node != 1) {
-                        currentNodes.push(procData.refs[ref].node);
-                    }
-                }
+                for (let ref in procData[binderName].refs)
+                    if (procData[binderName].refs[ref].node != 1)
+                        currentNodes.push(procData[binderName].refs[ref].node);
 
                 newNodes = [].concat(currentNodes.filter(x => !knownNodes.includes(x)));
                 sg.release();

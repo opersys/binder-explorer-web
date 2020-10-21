@@ -16,7 +16,6 @@
 
 "use strict";
 
-var _  = require("underscore");
 var debug = require("debug")("be:feeder");
 var EventEmitter = require("events");
 
@@ -34,7 +33,6 @@ class DataFeeder extends EventEmitter {
             this.onServiceData(binderService);
         });
         this._binderWatcher.on("onProcessAdded", (binderProcess) => {
-            debug("onProcessAdded event from binderWatcher");
             this.onProcessAdded(binderProcess);
         });
         this._binderWatcher.on("onProcessRemoved", (processPid) => {
@@ -54,21 +52,21 @@ class DataFeeder extends EventEmitter {
         var userProcesses = this._binderWatcher.getUserProcesses();
 
         debug("Data feeder started catching up ["
-              + _.values(binderServices).length + " services, "
-              + _.values(binderProcesses).length + " processes]");
+              + Object.values(binderServices).length + " services, "
+              + Object.values(binderProcesses).length + " processes]");
 
-        _.values(binderServices).forEach((binderService) => {
+        Object.values(binderServices).forEach((binderService) => {
             this._up2Services[binderService.name] = true;
             this._sock.emit("service", binderService);
         });
 
-        _.values(binderProcesses).forEach((binderProcess) => {
+        Object.values(binderProcesses).forEach((binderProcess) => {
             this._up2Processes[binderProcess.pid] = true;
             this._sock.emit("processadded", binderProcess);
         });
 
-        _.values(userProcesses).forEach((userProcessService) => {
-            _.values(userProcessService.services).forEach((userService) => {
+        Object.values(userProcesses).forEach((userProcessService) => {
+            Object.values(userProcessService.services).forEach((userService) => {
                 this._up2ProcessServices[userService.intent] = true;
                 this._sock.emit("processserviceadded", userService);
             });
