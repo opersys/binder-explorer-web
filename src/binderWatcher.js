@@ -16,40 +16,52 @@
 
 "use strict";
 
+const assert = require("assert");
 const async = require("async");
 const util = require("util");
 const events = require("events");
 const fs = require("fs");
-const debug = require("debug")("be:watcher");
 const cp = require("child_process");
 const pslook = require("pslook");
 const rl = require("readline");
 const EventEmitter = require("events");
 const Buffer = require("buffer").Buffer;
 
+const debugProcService = require("debug")("be:watcher:procservice");
+const debugService = require("debug")("be:watcher:service");
+const debugProcess = require("debug")("be:watcher:process");
+
 // Local modules
 const BinderUtils = require("./binderUtils.js");
 const ServiceListParser = require("./ServiceListParser.js");
 const ServiceManager = require("./ServiceManager.js");
+const FE = require("./FrontendObjects.js");
 
 class BinderWatcher extends EventEmitter {
     constructor() {
         super();
 
         this._serviceListParser = new ServiceListParser();
-        this._binderServices = {};
-        this._binderProcesses = {};
-        this._userProcesses = {};
-        this._serviceManager = new ServiceManager.ServiceManager();
+
+        this._services = new Map();
+        this._services.set("binder", new Map());
+        this._services.set("hwbinder", new Map());
+        this._services.set("vndbinder", new Map());
+
+        this._processes = new Map();
+        this._procServices = new Map();
+
+        this._serviceManagers = new Map();
+        this._serviceManagers.set("binder", new ServiceManager.ServiceManager());
+        this._serviceManagers.set("hwbinder", new ServiceManager.HwServiceManager());
+        this._serviceManagers.set("vndbinder", new ServiceManager.VndServiceManager());
     }
 
-    getProcesses() { return this._binderProcesses; }
-    getServices() { return this._binderServices; }
-    getUserProcesses() { return this._userProcesses; }
+    getProcesses() { return this._processes; }
+    getServices(binderName) { return this._services.get(binderName); }
+    getProcessWithServices() { return this._procServices; }
 
     start() {
-        debug("Starting timers.");
-
         setTimeout(() => { this.scanBinderServices(); }, 500);
         setTimeout(() => { this.scanBinderProcesses(); }, 500);
         setTimeout(() => { this.scanProcessServices(); }, 1000);
@@ -77,117 +89,164 @@ class BinderWatcher extends EventEmitter {
     }
 
     scanProcessServices() {
-        // If the activty service isn't there, this won't work at all.
-        if (!this._serviceManager.getService("activity"))
+        // If the activty service isn't there, this won't work at all. So reschedule this at a later time.
+        let serviceList = this._serviceManagers.get("binder").fetch();
+
+        if (!serviceList.hasService("activity")) {
+            debugProcService("No activity service, rescheduling");
+            setTimeout(() => { this.scanProcessServices(); }, 1000);
             return;
+        }
 
         this.dumpServices(() => {
-            Object.values(this._binderProcesses).map((bproc) => {
-                let svcs = this._serviceListParser.getServicesForPid(bproc.pid);
+            for (let proc of this._processes.values()) {
+                let procServices = this._serviceListParser.getServicesForPid(proc.pid);
 
-                if (!this._userProcesses[bproc.pid]) {
-                    this._userProcesses[bproc.pid] = {
+                if (!this._procServices.has(proc.pid)) {
+                    this._procServices.set(proc.pid, {
                         services: [],
-                        pid: bproc.pid
-                    };
-                }
-
-                if (svcs) {
-                    svcs.forEach((svc) => {
-                        if (!this._userProcesses[svc.pid].services.some((bsvc) => bsvc.intent === svc.intent)) {
-                            this._userProcesses[svc.pid].services.push(svc);
-                            this._userProcesses[svc.pid].pid = svc.pid;
-                            this.emit("onProcessServiceAdded", svc);
-                        }
+                        pid: proc.pid
                     });
                 }
 
-                if (svcs.length < this._userProcesses[bproc.pid].services.length) {
-                    this._userProcesses[bproc.pid].services = this._userProcesses[bproc.pid].services.filter(
-                        (bsvc) => {
-                            if (svcs.some((s) => s.intent === bsvc.intent))
-                                this.emit("onProcessServiceRemoved", bsvc);
-                        });
+                for (let procService of procServices) {
+                    let procServices;
+
+                    procServices = this._procServices.get(procService.pid).services;
+
+                    if (!procServices.some((aProcService) => aProcService.intent === procService.intent)) {
+                        debugProcService(`Process service added ${procService.intent}, pid ${procService.pid}`);
+
+                        procServices.push(procService);
+                        this._procServices.get(procService.pid).pid = procService.pid;
+                        this.emit("onProcessServiceAdded", FE.ProcessService.fromClass(procService));
+                    }
                 }
-            });
+
+                if (procServices.length < this._procServices.get(proc.pid).services.length) {
+                    let procServices;
+
+                    procServices = this._procServices.get(proc.pid).services;
+                    procServices = procServices.filter(
+                        (bsvc) => {
+                            if (procServices.some((s) => s.intent === bsvc.intent)) {
+                                debugProcService(`Process service added ${bsvc.intent}, pid ${bsvc.pid}`);
+                                this.emit("onProcessServiceRemoved", bsvc);
+                            }
+                        }
+                    );
+                }
+            }
 
             setTimeout(() => { this.scanProcessServices(); }, 1000);
         }, () => {
-            debug("Cannot get user processes");
+            debugProcService("Cannot get process services");
         });
     }
 
+    /**
+     * Collect data about each services of each binders instances.
+     */
     scanBinderServices() {
-        let diff, newlist, oldlist;
+        // Iterate through each service managers
+        for (let binderName of this._serviceManagers.keys()) {
+            this._serviceManagers.get(binderName).fetch((serviceList) => {
+                let newlist, oldlist, diff;
 
-        newlist = this._serviceManager.all().map((service) => service.name);
-        oldlist = Object.keys(this._binderServices);
+                // Check if anything has been added to the list of services.
+                newlist = serviceList.all().map((service) => service.name);
+                oldlist = Array.from(this._services.keys());
 
-        diff = newlist.filter(x => !oldlist.includes(x));
+                diff = newlist.filter(x => !oldlist.includes(x));
 
-        this.preloadBinderServiceData((binderData, binderProcsByNode) => {
-            async.eachLimit(diff, 10, (added, callback) => {
+                BinderUtils.readBinderStateFile((binderData) => {
+                    // Check the data of each services that was added.
+                    async.eachLimit(diff, 10, (added, callback) => {
 
-                debug("Looking for service: " + added);
+                        debugService(`Looking up ${binderName}->${added}`);
 
-                this.readBinderServiceData(added, "binder", binderProcsByNode,
-                                           (service) => {
-                                               this.emit("onServiceData", service);
-                                               callback();
-                                           }, (err) => {
-                                               console.log("readBinderServiceData failed");
-                                               // TODO: Do something.
-                                               callback();
-                                           });
+                        // Callbacks isolated for readability in 80
+                        // columns. Do not see anything else about me
+                        // doing that.
+
+                        let errCb = (err) => {
+                            debugService(`Cannot read data for ${binderName}->${added}: ${err}`);
+                            // TODO: Do something.
+                            callback();
+                        };
+
+                        let okCb = (service) => {
+                            assert(service);
+
+                            this.emit("onServiceData", binderName, service);
+                            callback();
+                        };
+
+                        this.readBinderServiceData(binderName, added, binderData, okCb, errCb);
+                    });
+                });
             });
-        });
+        }
     }
 
     scanBinderProcesses() {
         let newlist, oldlist, addedlist, removedlist;
 
         BinderUtils.readBinderStateFile((binderData) => {
-            oldlist = Object.keys(this._binderProcesses);
-            newlist = Object.keys(binderData);
+            oldlist = Array.from(this._processes.keys());
+            newlist = Array.from(binderData.pids);
 
             addedlist = newlist.filter(x => !oldlist.includes(x));
             removedlist = oldlist.filter(x => !newlist.includes(x));
 
-            if (addedlist.length > 0)
-                debug("Added list: " + util.inspect(addedlist));
+            if (debugProcess.enabled && addedlist.length > 0)
+                debugProcess(`Added list: ${util.inspect(addedlist)}`);
 
-            if (removedlist.length > 0)
-                debug("Removed list: " + util.inspect(removedlist));
+            if (debugProcess.enabled && removedlist.length > 0)
+                debugProcess(`Removed list: ${util.inspect(removedlist)}`);
 
-            if (addedlist.length > 0 || removedlist.length > 0)
-                debug("Done scanning binder processes: " + addedlist.length + " added, " + removedlist.length + " removed");
+            if (debugProcess.enabled && (addedlist.length > 0 || removedlist.length > 0))
+                debugProcess(`Done scanning binder processes: ${addedlist.length} added, ${removedlist.length} removed`);
 
             async.each(addedlist, (added, eachCallback) => {
                 this.readBinderProcessData(added, (process) => {
                     this.emit("onProcessAdded", process);
                     eachCallback();
                 }, (err) => {
-                    debug("Error reading Binder process data for " + added + ": " + err);
+                    debugProcess(`Error reading Binder process data for ${added}: ${err}`);
                     eachCallback();
                 });
             });
 
-            removedlist.forEach((removed) => {
-                delete this._binderProcesses[removed];
+            // Remove the processes that are no longer in the list of
+            // binder processes.
+            for (let removed of removedlist) {
+                this._processes.delete(removed);
                 this.emit("onProcessRemoved", removed);
-            });
+            }
 
+            // Reschedule the scanning.
             setTimeout(() => { this.scanBinderProcesses(); }, 1000);
         });
     };
 
     readBinderProcessData(binderProcId, successCallback, errorCallback) {
-        let binderProcess = {};
+        let proc;
 
         async.waterfall([(next) => {
-            BinderUtils.readBinderStateFile((binderProcs) => {
-                if (binderProcs[binderProcId]) {
-                    binderProcess = binderProcs[binderProcId];
+            BinderUtils.readBinderStateFile((binderData) => {
+                if (binderData.hasProcess(binderProcId)) {
+                    proc = new FE.Process(binderProcId);
+
+                    ["binder", "hwbinder", "vndbinder"].forEach((binderName) => {
+                        if (binderData.getProcess(binderProcId).hasContext(binderName)) {
+                            let procCtx = binderData.getProcess(binderProcId).getContext(binderName);
+
+                            for (let ref of procCtx.refs)
+                                proc.addRef(ref.node);
+                        }
+                    });
+
                     next();
                 }
                 else next("Unknown binder process");
@@ -202,8 +261,9 @@ class BinderWatcher extends EventEmitter {
                 if (err)
                     next("Failed to read process data from /proc: " + err);
                 else {
-                    if (!procData.cmdline[0].endsWith("grabservice")) {
-                        binderProcess.process = procData;
+                    /* HACK: Discard 'grabservice' processes. */
+                    if (procData.cmdline[0].indexOf("grabservice") == -1) {
+                        proc.process = procData;
                         next();
                     }
                     else next("grabservice");
@@ -211,62 +271,42 @@ class BinderWatcher extends EventEmitter {
             }, {fields: pslook.CMD });
         }, (next) => {
             // Properly add the process to the list.
-            this._binderProcesses[binderProcId] = binderProcess;
+            debugProcess(`Process ${proc.pid} was added to the process list`);
+            this._processes.set(binderProcId, proc);
             next();
         }],(err) => {
             if (err && errorCallback) {
                 // Grabservice processes needs to be excluded.
                 if (err != "grabservice") {
-                    delete this._binderProcesses[binderProcId];
-                    errorCallback("Failed to get Binder process information: " + err);
+                    this._processes.delete(binderProcId);
+                    errorCallback("Failed to get process information: " + err);
                 }
             }
-            else successCallback(this._binderProcesses[binderProcId]);
+            else successCallback(this._processes.get(binderProcId));
         });
     }
 
-    preloadBinderServiceData(preloadCallback) {
-        BinderUtils.readBinderStateFile((binderData) => {
-            let binderProcsByNode = {};
-
-            debug("Preloaded services data");
-
-            Object.keys(binderData).forEach((binderPid) => {
-                ["binder", "hwbinder", "vndbinder"].forEach((binderName) => {
-                    if (binderData[binderPid][binderName]) {
-                        binderData[binderPid][binderName].nodes.forEach((nodeData) => {
-                            binderProcsByNode[nodeData.id] = {};
-                            binderProcsByNode[nodeData.id] = binderData[binderPid];
-                            binderProcsByNode[nodeData.id].node = nodeData.id;
-                            binderProcsByNode[nodeData.id].pid = binderPid;
-                        });
-                    }
-                });
-            });
-
-            preloadCallback(binderData, binderProcsByNode);
-        });
-    }
-
-    readBinderServiceData(serviceName, binderName, binderProcsByNode, successCallback, errorCallback) {
+    readBinderServiceData(binderName, serviceName, binderData, successCallback, errorCallback) {
         try {
             async.waterfall([(next) => {
-                BinderUtils.findServiceNodeId(serviceName, binderName, (node, iface) => {
-                    if (binderProcsByNode[node] == null)
-                        next(null, null);
-                    else {
-                        this._binderServices[serviceName] = {
-                            name: serviceName,
-                            iface: iface,
-                            node: node,
-                            pid: binderProcsByNode[node].pid
-                        };
+                BinderUtils.findServiceNodeId(this._serviceManagers.get(binderName), serviceName, (node) => {
+                    if (!node)
+                        next(`No NODE ID for service ${binderName}->${serviceName}`);
 
-                        if (!serviceName)
-                            debug("No service name for interface " + iface);
+                    else if (!binderData.hasProcessByNode(node))
+                        next(`Service ${binderName}->${serviceName} has no process for node ID ${node}`);
+
+                    // Found a node ID.
+                    else {
+                        debugService(`Service ${binderName}->${serviceName} node ID: ${node}`);
+
+                        let dataProc = binderData.getProcessByNode(node);
+                        let service = new FE.Service(serviceName, node, dataProc.pid);
+
+                        this._services.get(binderName).set(serviceName, service);
 
                         //successCallback(self._binderServices[serviceName]);
-                        next(null, binderProcsByNode[node].pid);
+                        next(null, service.pid);
                     }
                 });
             }, (pid, next) => {
@@ -275,14 +315,17 @@ class BinderWatcher extends EventEmitter {
                         if (err)
                             next("Failed to read process data");
 
-                        this._binderServices[serviceName].process = procData;
+                        this._services.get(binderName).get(serviceName).process = procData;
                         next();
                     }, {fields: pslook.PID | pslook.CWD | pslook.CMD | pslook.ENV });
-                }
-            }
-        ], (err) => {
-            successCallback(this._binderServices[serviceName]);
-        });
+                } else
+                    next("No PID returned for service");
+            }], (err) => {
+                if (err)
+                    errorCallback(err);
+                else
+                    successCallback(this._services.get(binderName).get(serviceName));
+            });
         } catch (err) {
             if (errorCallback) errorCallback(err);
         }

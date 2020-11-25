@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,23 +15,19 @@
  */
 
 define(function (require) {
-    var Backbone = require("backbone");
-    var BinderService = require("models/BinderService");
+    const Backbone = require("backbone");
+    const BinderService = require("models/BinderService");
 
     return Backbone.Collection.extend({
         url: "/binder/services",
         model: BinderService,
 
-        _serviceByNodeId: {},
-
-        initialize: function () {
-            this.on("add", (m) => {
-                this._serviceByNodeId[m.get("node")] = m;
-            });
+        initialize: function (_, opts) {
+            this._binderName = opts.binderName;
         },
 
-        getServiceByNode: function (n) {
-            return this._serviceByNodeId[n];
+        getBinderName: function () {
+            return this._binderName;
         }
     });
 });

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ define(function (require) {
     var DependsView = require("views/depends-d3-atom");
     var ServiceTooltip = require("views/tooltip-service");
     var ProcessTooltip = require("views/tooltip-process");
-    var UserServiceTooltip = require("views/tooltip-userservice");
+    var ProcessServiceTooltip = require("views/tooltip-procservice");
     var ServiceDialog = require("views/dialog-service");
     var ProcessDialog = require("views/dialog-process");
 
@@ -34,153 +34,121 @@ define(function (require) {
         _dependsView: null,
         _serviceTooltip: null,
         _processTooltip: null,
-        _userServiceTooltip: null,
+        _procServiceTooltip: null,
 
         getLayoutName: function () { return "layout"; },
 
-        _onUserServiceOver: function (tip, userService) {
-            var self = this;
-
-            self._userServiceTooltip = new UserServiceTooltip({
+        _onProcServiceOver: function (tip, procService) {
+            this._procServiceTooltip = new ProcessServiceTooltip({
                 tip: tip,
-                userService: userService
+                procService: procService
             });
-            self._userServiceTooltip.render();
+            this._procServiceTooltip.render();
         },
 
-        _onUserServiceOut: function () {
-            var self = this;
-            self._userServiceTooltip.hide();
+        _onProcServiceOut: function () {
+            this._procServiceTooltip.hide();
         },
 
         _onServiceOver: function (tip, service) {
-            var self = this;
-
-            self._serviceTooltip = new ServiceTooltip({
+            this._serviceTooltip = new ServiceTooltip({
                 tip: tip,
                 service: service,
-                services: self._binderServices,
-                serviceLinks: self._serviceLinks
+                services: this._binderServices,
+                linkhandler: this._linkhandler
             });
-            self._serviceTooltip.render();
+            this._serviceTooltip.render();
         },
 
         _onServiceOut: function () {
-            var self = this;
-
-            self._serviceTooltip.hide();
+            this._serviceTooltip.hide();
         },
 
         _onProcessOver: function (tip, process) {
-            var self = this;
-
-            self._serviceTooltip = new ProcessTooltip({
+            this._processTooltip = new ProcessTooltip({
                 tip: tip,
                 process: process
             });
-            self._serviceTooltip.render();
+            this._processTooltip.render();
         },
 
         _onProcessOut: function () {
-            var self = this;
-
-            self._serviceTooltip.hide();
+            this._processTooltip.hide();
         },
 
         _onProcessClick: function (process) {
-            var self = this;
-
-            self._processDialog = new ProcessDialog({
+            this._processDialog = new ProcessDialog({
                 process: process,
-                processes: self._binderProcesses,
-                services: self._binderServices,
-                serviceLinks: self._serviceLinks
+                processes: this._processes,
+                linkhandler: this._linkhandler
             });
-            self._processDialog.render();
+            this._processDialog.render();
         },
 
         _onServiceClick: function (service) {
-            var self = this;
-
-            self._serviceDialog = new ServiceDialog({
+            this._serviceDialog = new ServiceDialog({
                 service: service,
-                processes: self._binderProcesses,
-                services: self._binderServices,
-                serviceLinks: self._serviceLinks
+                processes: this._processes,
+                linkhandler: this._linkhandler
             });
-            self._serviceDialog.render();
+            this._serviceDialog.render();
         },
 
         initialize: function (opts) {
-            var self = this;
+            this._binders = opts.binders;
+            this._operations = opts.operations;
+            this._processes = opts.processes;
+            this._linkhandler = opts.linkhandler;
+            this._proclinkhandler = opts.proclinkhandler;
 
-            self._binderServices = opts.binderServices;
-            self._binderProcesses = opts.binderProcesses;
-            self._serviceLinks = opts.serviceLinks;
-            self._userServiceLinks = opts.userServiceLinks;
-            self._operations = opts.operations;
-            self._procs = opts.procs;
-
-            self._dependsView = new DependsView({
-                binderServices: self._binderServices,
-                binderProcesses: self._binderProcesses,
-                serviceLinks: self._serviceLinks,
-                userServiceLinks: self._userServiceLinks,
-                functions: self._functions
+            this._dependsView = new DependsView({
+                binders: this._binders,
+                linkhandler: this._linkhandler,
+                proclinkhandler: this._proclinkhandler,
+                functions: this._functions,
+                processes: this._processes
             });
 
-            self._sock = io(location.host + "/", { transports: ["websocket"] });
-            self._wsHandler = new WSHandler(self._sock, self._binderServices, self._binderProcesses);
+            this._sock = io(location.host + "/", { transports: ["websocket"] });
+            this._wsHandler = new WSHandler(this._sock, this._binders, this._processes);
 
-            self.$el.w2layout({
-                name: self.getLayoutName(),
+            this.$el.w2layout({
+                name: this.getLayoutName(),
                 panels: [
                     {
                         type: "main",
-                        content: self._dependsView,
+                        content: this._dependsView,
                         overflow: "hidden"
                     }
                 ],
-                onResize: function (ev) {
-                    ev.onComplete = function () {
-                        if (self._dependsView) {
-                            self._dependsView.resize();
-                        }
-                    };
-                }
             });
 
-            self._dependsView.on("depends_view:onUserServiceOver", function () {
-                self._onUserServiceOver.apply(self, arguments);
+            this._dependsView.on("depends_view:onProcServiceOver", (tip, procService) => {
+                this._onProcServiceOver(tip, procService);
             });
 
-            self._dependsView.on("depends_view:onUserServiceOut", function () {
-                self._onUserServiceOut.apply(self, arguments);
+            this._dependsView.on("depends_view:onProcServiceOut", () => {
+                this._onProcServiceOut();
             });
 
-            self._dependsView.on("depends_view:onServiceOver", function () {
-                self._onServiceOver.apply(self, arguments);
+            this._dependsView.on("depends_view:onServiceOver", (tip, service) => {
+                this._onServiceOver(tip, service);
             });
 
-            self._dependsView.on("depends_view:onServiceOut", function () {
-                self._onServiceOut.apply(self, arguments);
+            this._dependsView.on("depends_view:onServiceOut", () => {
+                this._onServiceOut();
             });
 
-            self._dependsView.on("depends_view:onProcessOver", function () {
-                self._onProcessOver.apply(self, arguments);
+            this._dependsView.on("depends_view:onProcessOver", (tip, process) => {
+                this._onProcessOver(tip, process);
             });
 
-            self._dependsView.on("depends_view:onProcessOut", function () {
-                self._onProcessOut.apply(self, arguments);
+            this._dependsView.on("depends_view:onProcessOut", () => {
+                this._onProcessOut();
             });
 
-            self._dependsView.on("depends_view:onProcessClick", function () {
-                self._onProcessClick.apply(self, arguments);
-            });
-
-            self._dependsView.on("depends_view:onServiceClick", function () {
-                self._onServiceClick.apply(self, arguments);
-            });
+            this._dependsView.on("depends_view:onProcessClick", this._onProcessClick);
+            this._dependsView.on("depends_view:onServiceClick", this._onServiceClick);
         }
     });
 });

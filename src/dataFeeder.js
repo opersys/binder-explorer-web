@@ -16,8 +16,11 @@
 
 "use strict";
 
-var debug = require("debug")("be:feeder");
-var EventEmitter = require("events");
+const debug = require("debug")("be:feeder");
+const EventEmitter = require("events");
+const util = require("util");
+
+const FE = require("./FrontendObjects.js");
 
 class DataFeeder extends EventEmitter {
 
@@ -25,12 +28,16 @@ class DataFeeder extends EventEmitter {
         super();
         this._binderWatcher = binderWatcher;
         this._sock = sock;
-        this._up2Processes = {};
-        this._up2Services = {};
-        this._up2ProcessServices = {};
+        this._up2Processes = new Set();
+        this._up2Services = new Map();
+        this._up2ProcessServices = new Set();
 
-        this._binderWatcher.on("onServiceData", (binderService) => {
-            this.onServiceData(binderService);
+        this._up2Services.set("binder", new Set());
+        this._up2Services.set("vndbinder", new Set());
+        this._up2Services.set("hwbinder", new Set());
+
+        this._binderWatcher.on("onServiceData", (binderName, binderService) => {
+            this.onServiceData(binderName, binderService);
         });
         this._binderWatcher.on("onProcessAdded", (binderProcess) => {
             this.onProcessAdded(binderProcess);
@@ -47,30 +54,41 @@ class DataFeeder extends EventEmitter {
     }
 
     start() {
-        var binderServices = this._binderWatcher.getServices();
-        var binderProcesses = this._binderWatcher.getProcesses();
-        var userProcesses = this._binderWatcher.getUserProcesses();
+        let services = new Map();
+        let processes = this._binderWatcher.getProcesses();
+        let procsWithServices = this._binderWatcher.getProcessWithServices();
+
+        /* Please not that Socket.IO does not like Javascript Maps */
+
+        services.set("vndbinder", this._binderWatcher.getServices("vndbinder"));
+        services.set("hwbinder", this._binderWatcher.getServices("hwbinder"));
+        services.set("binder", this._binderWatcher.getServices("binder"));
 
         debug("Data feeder started catching up ["
-              + Object.values(binderServices).length + " services, "
-              + Object.values(binderProcesses).length + " processes]");
+              + services.get("binder").size + " binder services, "
+              + services.get("hwbinder").size + " hwbinder services, "
+              + services.get("vndbinder").size + " vndbinder services, "
+              + processes.size + " processes, "
+              + procsWithServices.size + " processe services]");
 
-        Object.values(binderServices).forEach((binderService) => {
-            this._up2Services[binderService.name] = true;
-            this._sock.emit("service", binderService);
-        });
+        for (let binderName of services.keys()) {
+            for (let service of services.get(binderName).values()) {
+                this._up2Services.get(binderName).add(service.name);
+                this._sock.emit("service", binderName, service);
+            }
+        }
 
-        Object.values(binderProcesses).forEach((binderProcess) => {
-            this._up2Processes[binderProcess.pid] = true;
-            this._sock.emit("processadded", binderProcess);
-        });
+        for (let process of processes.values()) {
+            this._up2Processes.add(process.pid);
+            this._sock.emit("processadded", process);
+        }
 
-        Object.values(userProcesses).forEach((userProcessService) => {
-            Object.values(userProcessService.services).forEach((userService) => {
-                this._up2ProcessServices[userService.intent] = true;
-                this._sock.emit("processserviceadded", userService);
-            });
-        });
+        for (let procWithServices of procsWithServices.values()) {
+            for (let procService of procWithServices.services) {
+                this._up2ProcessServices.add(procService.intent);
+                this._sock.emit("processserviceadded", FE.ProcessService.fromClass(procService));
+            }
+        }
 
         debug("Data feeder is done catching up");
     }
@@ -85,50 +103,50 @@ class DataFeeder extends EventEmitter {
         this._binderWatcher.off("onProcessServiceRemoved", this.onProcessServiceRemoved);
     }
 
-    onServiceData(binderService) {
-        debug("Service " + binderService.name + " was added");
+    onServiceData(binderName, binderService) {
+        debug(`Service added: ${binderName}->${binderService.name}`);
 
-        if (!this._up2Services[binderService.name]) {
-            this._up2Services[binderService.name] = true;
-            this._sock.emit("service", binderService);
+        if (!this._up2Services.get(binderName).has(binderService.name)) {
+            this._up2Services.get(binderName).add(binderService.name);
+            this._sock.emit("service", binderName, binderService);
         }
     }
 
     onProcessAdded(binderProcess) {
-        if (!this._up2Processes[binderProcess.pid]) {
-            debug("Process " + binderProcess.pid + " was added");
+        if (!this._up2Processes.has(binderProcess.pid)) {
+            debug(`Process added: ${binderProcess.pid}`);
 
-            this._up2Processes[binderProcess.pid] = true;
+            this._up2Processes.add(binderProcess.pid);
             this._sock.emit("processadded", binderProcess);
         }
-        else debug("Not sending process addition for " + binderProcess.pid + ": Already added.");
+        else debug(`Not sending process addition for ${binderProcess.pid}: Already added`);
     }
 
     onProcessRemoved(processPid) {
-        if (this._up2Processes[processPid]) {
-            debug("Process " + processPid + " is gone");
+        if (this._up2Processes.has(processPid)) {
+            debug(`Process gone: ${processPid}`);
 
-            delete this._up2Processes[processPid];
+            this._up2Processes.delete(processPid);
             this._sock.emit("processremoved", processPid);
         }
-        else debug("Not sending process removal for " + processPid + ": Already gone.");
+        else debug(`Not sending process removal for ${processPid}: Already gone`);
     }
 
     onProcessServiceAdded(processService) {
-        if (!this._up2ProcessServices[processService.intent]) {
-            debug("Process " + processService.pid + " service " + processService.intent + " STARTED");
+        if (!this._up2ProcessServices.has(processService.intent)) {
+            debug(`Process Service started: ${processService.intent}, in process ${processService.pid}`);
 
-            this._up2ProcessServices[processService.intent] = true;
-            this._sock.emit("processserviceadded", processService);
+            this._up2ProcessServices.add(processService.intent);
+            this._sock.emit("processserviceadded", FE.ProcessService.fromClass(processService));
         }
     }
 
     onProcessServiceRemoved(processService) {
-        if (this._up2ProcessServices[processService.intent]) {
-            debug("Process " + processService.pid+ " service " + processService.intent + " STOPPED");
+        if (this._up2ProcessServices.has(processService.intent)) {
+            debug(`Process Service stopped: ${processService.intent}, in ${processService.pid} STOPPED`);
 
-            delete this._up2ProcessServices[processService.intent];
-            this._sock.emit("processserviceremoved", processService);
+            this._up2ProcessServices.delete(processService.intent);
+            this._sock.emit("processserviceremoved", FE.processService.fromClass(processService));
         }
     }
 }

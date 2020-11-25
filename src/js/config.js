@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,6 @@ requirejs.config({
             deps: ["jquery"],
             exports: "w2ui"
         },
-        "jquery-timer/jquery.timer": {
-            deps: ["jquery"]
-        },
         "socketio": {
             exports: "io"
         },
@@ -32,22 +29,26 @@ requirejs.config({
         underscore: {
             exports: "_"
         },
+        "d3-tip": {
+            deps: ["d3"]
+        },
+        d3: {
+            exports: "d3"
+        },
         backbone: {
             deps: ["underscore"]
-        },
-        "backbone-relational": {
-            deps: ["underscore", "backbone"]
         }
     },
     paths: {
-        w2ui: "w2ui/w2ui-1.4.2.min",
-        underscore: "underscore/underscore",
-        backbone: "backbone/backbone",
-        jquery: "jquery/jquery",
-        d3: "d3/d3",
-        socketio: "../socket.io/socket.io",
-        handlebars: "handlebars/handlebars",
-        highlightjs: "highlightjs/highlight.pack"
+        w2ui: "/app/js/w2ui/w2ui-1.4.2.min",
+        underscore: "/app/js/underscore/underscore",
+        backbone: "/app/js/backbone/backbone",
+        jquery: "/app/js/jquery/jquery",
+        d3: "/app/js/d3/d3",
+        "d3-tip": "/app/js/d3-tip/d3-tip",
+        socketio: "/socket.io/socket.io",
+        handlebars: "/app/js/handlebars/handlebars",
+        highlightjs: "/app/js/highlightjs/highlight.pack"
     },
     packages: []
 });

@@ -16,7 +16,8 @@
 
 "use strict";
 
-var util = require("util");
+const util = require("util");
+const assert = require("assert");
 
 /*
   { bindingRecords:
@@ -62,6 +63,35 @@ const _IN_BR = 2;
 const _IN_SR= 1;
 const _NEUTRAL = 0;
 
+/**
+ * Represents a Service object. This is returned to the caller.
+ */
+class Service {
+    constructor(intent, pid, pkg) {
+        assert.ok(intent, "Null/invalid intent");
+        assert(Number.isInteger(pid), "Invalid 'pid'");
+        assert.ok(pkg, "Invalid 'pkg'");
+
+        this._intent = intent;
+        this._pid = pid;
+        this._pkg = pkg;
+        this._clients = [];
+    }
+
+    get intent() { return this._intent; }
+    get pid() { return this._pid; }
+    get pkg() { return this._pkg; }
+    get clients() { return this._clients; };
+}
+
+/**
+ * Parse the return of "dumpsys activity services".
+ *
+ * Note: I've tried making this class "cleaner" by using classes and
+ * Map objects but it just made a mess. Just keep it as such. It work
+ * outs its internals alone just fine and does not expose it to the
+ * caller.
+ */
 class ServiceListParser {
     constructor() {
         this._state = _NEUTRAL;
@@ -71,12 +101,7 @@ class ServiceListParser {
     }
 
     simplify(s) {
-        let ss = {
-            intent: s.intent,
-            pid: s.app.pid,
-            pkg: s.packageName,
-            clients: []
-        };
+        let ss = new Service(s.intent, s.app.pid, s.packageName);
 
         s.bindingRecords.forEach(function (br) {
             if (br.client) ss.clients.push(br.client.pid);
@@ -91,13 +116,13 @@ class ServiceListParser {
 
     parsePr(prValue) {
         if (prValue === "null")
-            return {};
+            return new Map();
 
         let pr = prValue.match(/ProcessRecord{.* ([0-9]*):(.*)\/.*}/);
         let pid = pr[1];
         let nm = pr[2];
 
-        return { "name": nm, "pid": pid };
+        return { name: nm, pid: parseInt(pid) };
     }
 
     parseVar(varLine) {
@@ -106,7 +131,7 @@ class ServiceListParser {
         let varName = varLine.shift();
         let varValue = varLine.join("=");
 
-        return {"name": varName, "value": varValue};
+        return {name: varName, value: varValue};
     }
 
     parseCrLine(crLine) {
@@ -191,7 +216,7 @@ class ServiceListParser {
 
                     else if (line.match(/IntentBindRecord{/)) {
                         this._currentService.bindingRecords.push(this._currentBindingRecord);
-                        this._currentBindingRecord = {};
+                        this._currentBindingRecord = new Map();
                     }
                 }
             }
@@ -204,7 +229,7 @@ class ServiceListParser {
                     this.parseBrLine(line);
             }
             else if (this._state === _NEUTRAL) {
-                this._currentService = {};
+                this._currentService = new Map();
                 this._currentService.bindingRecords = [];
             }
         }

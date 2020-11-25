@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ define(function (require) {
     const Process = require("models/Process");
 
     return class WSHandler {
-        constructor(sock, binderServices, binderProcesses) {
+        constructor(sock, binders, processes) {
             this._sock = sock;
-            this._binderServices = binderServices;
-            this._binderProcesses = binderProcesses;
+            this._binders = binders;
+            this._processes = processes;
 
             this._sock.on("processadded", (data) => {
                 this._onProcessAdded(data);
@@ -41,33 +41,34 @@ define(function (require) {
                 this._onProcessServiceRemoved(data);
             });
 
-            this._sock.on("service", (data) => {
-                this._onService(data);
+            this._sock.on("service", (binderName, data) => {
+                this._onService(binderName, data);
             });
         }
 
-        _onProcessServiceAdded(userService) {
-            if (this._binderProcesses.get(userService.pid) != null)
-                this._binderProcesses.get(userService.pid).addUserService(userService);
+        _onProcessServiceAdded(procService) {
+            if (this._processes.get(procService.pid) != null)
+                this._processes.get(procService.pid).addProcessService(procService);
         }
 
-        _onProcessServiceRemoved(userService) {
-            if (this._binderProcesses.get(userService.pid) != null)
-                this._binderProcesses.get(userService.pid).removeUserService(userService);
+        _onProcessServiceRemoved(procService) {
+            if (this._processes.get(procService.pid) != null)
+                this._processes.get(procService.pid).removeProcessService(procService);
         }
 
         _onProcessAdded(binderProcess) {
             binderProcess.process = new Process(binderProcess.process);
-            this._binderProcesses.add(binderProcess);
+            this._processes.add(binderProcess);
         }
 
         _onProcessRemoved(binderProcessPid) {
-            this._binderProcesses.remove(binderProcessPid);
+            this._processes.remove(binderProcessPid);
         }
 
-        _onService(binderService) {
-            binderService.process = new Process(binderService.process);
-            this._binderServices.add(binderService);
+        _onService(binderName, binderService) {
+            //binderService.process = new Process(binderService.process);
+            //this._binderServices.add(binderService);
+            this._binders.get(binderName).get("services").add(binderService);
         }
     };
 });

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,27 +20,23 @@ define(function (require) {
 
     return Backbone.View.extend({
         initialize: function (opts) {
-            var self = this;
+            this._tmplService = Templates["./src/templates/template-procservices.hbs"];
+            this._tip = opts.tip;
+            this._procService = opts.procService;
 
-            self._tmplService = Templates["./src/templates/template-userservices.hbs"];
-            self._tip = opts.tip;
-            self._userService = opts.userService;
-
-            self._tip.html(function () {
-                return self._tmplService({
-                    name: self._userService.intent
+            this._tip.html(() => {
+                return this._tmplService({
+                    name: this._procService.intent
                 });
             });
         },
 
         render: function () {
-            var self = this;
-            self._tip.show(self._data);
+            this._tip.show(this._data);
         },
 
         hide: function () {
-            var self = this;
-            self._tip.hide();
+            this._tip.hide();
         }
     });
 });

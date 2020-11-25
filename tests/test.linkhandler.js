@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,115 +15,181 @@
  */
 
 /*
- * This is a test suite for the linkhandler.js file, which is kinda
- * critical but a bit difficult to debug.
+ * This is a test for the LinkHandler class, which is a bit difficult
+ * to debug from within the browser.
  *
- * Run the "chromedriver" for test in the following way:
- *
- * chromedriver --port=4444 --url-base=wd/hub
- *
- * Run the intern-runner this way:
- *
- *  % intern-runner config=tests/intern
+ * You can run in in node.js with mocha.
  */
 
-define(function (require) {
-    var Linker = require("../src/js/linkhandler.js");
-    var registerSuite = require('intern!object');
-    var assert = require('intern/chai!assert');
+'use strict';
 
-    var f = function (a, b) {
-        if (a == null) throw ("a should not be null");
-        if (b == null) throw ("b should not be null");
+const requirejs = require("requirejs");
+const jsdom = require("jsdom");
+const assert = require("assert");
 
-        return {
-            source: a,
-            target: b
-        };
-    };
+/* Setup a "fake browser" so that JQuery is happy. Backbone depends on
+ * JQuery. */
+let dom = new jsdom.JSDOM(
+    '<!DOCTYPE html data-debug=1>' +
+        '<head></head>' +
+        '<body>' +
+        '<div id="mocha-fixture"></div>' +
+        '</body>' +
+        '</html>'
+);
 
-    registerSuite({
-        name: 'Undirected',
+global.window = dom.window;
+global.document = dom.window.document;
 
-        "Add": function () {
-            var b, link;
+requirejs.config({
+    paths: {
+        backbone: "../bower_components/backbone/backbone",
+        d3: "../bower_components/d3/d3",
+        jquery: "../bower_components/jquery/dist/jquery",
+        underscore: "../bower_components/underscore/underscore",
+    },
 
-            link = new Linker.Undirected();
-            link.addLink("a", "b");
-            b = link.getLinks(f);
+    baseUrl: __dirname,
+    nodeRequire: require
+});
 
-            assert.lengthOf(b, 1);
-            assert.deepEqual({ source: "a", target: "b" }, b[0]);
-        },
+/*
+ * Our LinkHandler class is unfortunately an AMD module, but requirejs
+ * works fine in Node.js.
+ */
+const LinkHandler = requirejs("./src/js/linkhandler.js");
 
-        "Add/Remove": function () {
-            var b, link;
+function id(obj) {
+    assert.ok(obj);
+    return obj.id;
+}
 
-            link = new Linker.Undirected();
-            link.addLink("a", "b");
-            b = link.getLinks(f);
+function retB(a, b) {
+    assert.ok(a);
+    assert.ok(b);
+    return b;
+}
 
-            assert.lengthOf(b, 1);
+function retBoth(a, b) {
+    assert.ok(a);
+    assert.ok(b);
+    return [a, b];
+}
 
-            link.removeAll("a");
-            b = link.getLinks(f);
+let a, b, c, z, U1, U2, D1, D2;
 
-            assert.lengthOf(b, 0);
-        },
+describe("Undirected Links", () => {
+    beforeEach(() => {
+        U1 = new LinkHandler.Undirected();
+        a = {id: "a"};
+        b = {id: "b"};
+        c = {id: "c"};
+        z = {id: "z"};
+    });
 
-        "Add/Remove Dupe": function () {
-            var b, link;
+    it("should allow adding links", () => {
+        U1.addLink(a, b, id);
+    });
 
-            link = new Linker.Undirected();
-            link.addLink("a", "b");
-            link.addLink("b", "a");
-            b = link.getLinks(f);
+    it("should allow getting links", () => {
+        U1.addLink(a, b, id);
+        assert.deepEqual(U1.getLinksFrom(a, id, retB), [b]);
+    });
 
-            assert.lengthOf(b, 1);
-            assert.deepEqual({ source: "a", target: "b" }, b[0]);
+    it("show allow getting more than one link", () => {
+        U1.addLink(a, b, id);
+        U1.addLink(a, c, id);
+        assert.deepEqual(U1.getLinksFrom(a, id, retB), [b, c]);
+    });
 
-            link.addLink("b", "c");
-            b = link.getLinks(f);
+    it("should return link in both directions", () => {
+        U1.addLink(a, b, id);
+        U1.addLink(a, c, id);
+        assert.deepEqual(U1.getLinksFrom(b, id, retB), [a]);
+        assert.deepEqual(U1.getLinksFrom(c, id, retB), [a]);
+    });
 
-            assert.lengthOf(b, 2);
-            assert.deepEqual({ source: "a", target: "b" }, b[0]);
-            assert.deepEqual({ source: "b", target: "c" }, b[1]);
-        },
+    it("should not return links where there is none", () => {
+        U1.addLink(a, b, id);
+        assert.deepEqual(U1.getLinksFrom(z, id, retB), []);
+    });
 
-        "Add/Remove Many": function () {
-            var b, link;
+    it("should allow mixing link direction when fetching links from A", () => {
+        U1.addLink(a, b, id);
+        U1.addLink(c, a, id);
+        assert.deepEqual(U1.getLinksFrom(a, id, retB), [b, c]);
+        assert.deepEqual(U1.getLinksFrom(c, id, retB), [a]);
+    });
 
-            link = new Linker.Undirected();
-            link.addLink("a", "b");
-            link.addLink("a", "c");
-            link.addLink("x", "y");
-            link.addLink("b", "a");
-            b = link.getLinks(f);
+    it("should allow removing all links", () => {
+        U1.addLink(a, b, id);
+        U1.addLink(a, c, id);
+        U1.removeAll(a, id);
+        assert.deepEqual(U1.getLinksFrom(a, id, retB), []);
+        assert.deepEqual(U1.getLinksFrom(b, id, retB), []);
+    });
 
-            assert.lengthOf(b, 3);
-            assert.deepEqual({ source: "a", target: "b" }, b[0]);
-            assert.deepEqual({ source: "a", target: "c" }, b[1]);
-            assert.deepEqual({ source: "x", target: "y" }, b[2]);
+    it("should allow returning all links", () => {
+        U1.addLink(a, b, id);
+        U1.addLink(a, c, id);
+        assert.deepEqual(U1.getLinks(retBoth), [[a, b], [a, c]]);
+    });
 
-            link.removeAll("a");
-            b = link.getLinks(f);
+    it("should not return any links after removal", () => {
+        U1.addLink(a, b, id);
+        U1.addLink(a, c, id);
+        U1.removeAll(a, id);
+        assert.deepEqual(U1.getLinks(retBoth), []);
+    });
+});
 
-            assert.lengthOf(b, 1);
-            assert.deepEqual({ source: "x", target: "y" }, b[0]);
-        },
+describe("Directed Links", () => {
+    beforeEach(() => {
+        D1 = new LinkHandler.Directed();
+        a = {id: "a"};
+        b = {id: "b"};
+        c = {id: "c"};
+        z = {id: "z"};
+    });
 
-        "getLinksFrom": function () {
-            var b, link;
+    it("should allow adding links", () => {
+        D1.addLink(a, b, id);
+    });
 
-            link = new Linker.Undirected();
-            link.addLink("a", "b");
-            link.addLink("a", "c");
-            link.addLink("b", "c");
+    it("should allow getting links", () => {
+        D1.addLink(a, b, id);
+        assert.deepEqual(D1.getLinksFrom(a, id, retB), [b]);
+    });
 
-            b = link.getLinksFrom("a", f);
-            assert.lengthOf(b, 2);
-            assert.deepEqual({ source: "a", target: "b" }, b[0]);
-            assert.deepEqual({ source: "a", target: "c" }, b[1]);
-        }
+    it("should allow getting all links", () => {
+        D1.addLink(a, b, id);
+        D1.addLink(a, c, id);
+        D1.addLink(c, a, id);
+        assert.deepEqual(D1.getLinks(retBoth), [[a, b], [a, c], [c, a]]);
+    });
+
+    it("links should not go both ways", () => {
+        D1.addLink(a, b, id);
+        assert.deepEqual(D1.getLinksFrom(a, id, retB), [b]);
+        assert.deepEqual(D1.getLinksFrom(b, id, retB), []);
+    });
+
+    it("should support more than one link", () => {
+        D1.addLink(a, b, id);
+        D1.addLink(a, c, id);
+        assert.deepEqual(D1.getLinksFrom(a, id, retB), [b, c]);
+    });
+
+    it("should not return links where there is none", () => {
+        D1.addLink(a, b, id);
+        assert.deepEqual(D1.getLinksFrom(z, id, retB), []);
+    });
+
+    it("should allow returning all links, and order matters", () => {
+        D1.addLink(a, b, id);
+        D1.addLink(a, c, id);
+        assert.deepEqual(D1.getLinksFrom(a, id, retBoth), [[a, b], [a, c]]);
+        assert.deepEqual(D1.getLinksFrom(b, id, retBoth), []);
+        assert.deepEqual(D1.getLinksFrom(c, id, retBoth), []);
     });
 });

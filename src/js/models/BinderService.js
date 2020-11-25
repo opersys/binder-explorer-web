@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 define(function (require) {
-    var Backbone = require("backbone");
+    const Backbone = require("backbone");
 
     return Backbone.Model.extend({
         idAttribute: "name",
@@ -23,8 +23,7 @@ define(function (require) {
         initialize: function () {},
 
         getDomId: function () {
-            return "service_" + this.get("name").replace(/\./g, "_");
+            return "service_" + this.get("name").replace(/\.|\:|\/|@/g, "_");
         }
     });
 });
-

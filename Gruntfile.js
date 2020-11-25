@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 const path = require("path");
+const util = require("util");
 
 module.exports = function (grunt) {
 
@@ -22,6 +23,7 @@ module.exports = function (grunt) {
         bower_config = {},
         copy_config = {},
         exec_config = {},
+        chmod_config = {},
         compress_config = {},
         handlebars_config = {},
         has_config = false;
@@ -77,7 +79,7 @@ module.exports = function (grunt) {
             "./src/templates/template-services-dialog.hbs",
             "./src/templates/template-processes.hbs",
             "./src/templates/template-processes-dialog.hbs",
-            "./src/templates/template-userservices.hbs"
+            "./src/templates/template-procservices.hbs"
         ];
 
         copy_config["dist_" + arch] = {
@@ -104,15 +106,24 @@ module.exports = function (grunt) {
 
         exec_config["dist_md5sum_" + arch] = {
             command: [
-                "md5sum", path.join("out", [grunt.config("pkg.name"), "_", arch, ".zip"].join("")),
+                "md5sum", path.join("out", [grunt.config("pkg.name"), "_", arch, ".tar.gz"].join("")),
                 "|",
-                "cut -f 1 -d ' ' > " + path.join("out", [grunt.config("pkg.name"), "_", arch, ".zip.md5sum"].join(""))].join(" ")
+                "cut -f 1 -d ' ' > " + path.join("out", [grunt.config("pkg.name"), "_", arch, ".tar.gz.md5sum"].join(""))].join(" ")
+        };
+
+        chmod_config["dist_" + arch] = {
+            options: {mode: '755'},
+            files: {
+                src: [mkdist("_bin/node"),
+                      mkdist("_bin/grabservice"),
+                      mkdist("_bin/grabservice-hw"),
+                      mkdist("_bin/grabservice-vnd")]
+            }
         };
 
         compress_config["dist_" + arch] = {
             options: {
-                archive: path.join("out", [grunt.config("pkg.name"), "_", arch, ".zip"].join("")),
-                mode: 0
+                archive: path.join("out", [grunt.config("pkg.name"), "_", arch, ".tar.gz"].join("")),
             },
             files: [{ expand: true, cwd: "./dist_" + arch, src: ["./**"] }]
         };
@@ -121,6 +132,7 @@ module.exports = function (grunt) {
             "mkdir:dist_" + arch,
             "bower:dist_" + arch,
             "copy:dist_" + arch,
+            "chmod:dist_" + arch,
             "exec:dist_npm_" + arch,
             "handlebars:dist_" + arch
         ]);
@@ -136,6 +148,7 @@ module.exports = function (grunt) {
     grunt.config("bower", bower_config);
     grunt.config("copy", copy_config);
     grunt.config("exec", exec_config);
+    grunt.config("chmod", chmod_config);
     grunt.config("compress", compress_config);
     grunt.config("handlebars", handlebars_config);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,31 +24,26 @@ define(function (require) {
         placeholder: "__placeholder__",
 
         _onToolbarClick: function (event) {
-            var self = this;
-            var fun = self._operations.get(event.target);
-
+            let fun = this._operations.get(event.target);
             fun.execute();
         },
 
         _onToolbarAfterRender: function (event) {
-            var self = this;
-
             // Add the onclick callback on the IMAGE buttons only.
-            self._operations.each(function (fun) {
+            this._operations.each(function (fun) {
                 if (fun.get("image")) {
                     $("#" + fun.get("name")).on("click", function () {
-                        self._onToolbarClick({ target: fun.get("id") });
+                        this._onToolbarClick({ target: fun.get("id") });
                     });
                 }
             });
         },
 
         _addFunctions: function () {
-            var self = this;
-            var tb = w2ui[self._toolbarName];
-            var tbItems = tb.items;
+            let tb = w2ui[this._toolbarName];
+            let tbItems = tb.items;
 
-            self._operations.each(function (fun) {
+            this._operations.each(function (fun) {
                 if (!_.findWhere(tbItems, {id: fun.get("id")})) {
                     if (fun.get("image")) {
                         tbItems.push({
@@ -66,10 +61,10 @@ define(function (require) {
                 }
             });
 
-            if (tbItems.length > 1 && tb.get(self.placeholder)) {
+            if (tbItems.length > 1 && tb.get(this.placeholder)) {
                 //FIXME: tb.remove(self.placeholder) doesn't work for some reasons!
-                tb.items = _.reject(tbItems, function (item) {
-                    return item.id == self.placeholder;
+                tb.items = _.reject(tbItems, (item) => {
+                    return item.id == this.placeholder;
                 });
             }
 
@@ -77,34 +72,32 @@ define(function (require) {
         },
 
         initialize: function (opts) {
-            var self = this;
+            this._operations = opts.operations;
+            this._toolbarName = _.uniqueId("toolbar");
+            this._logo = opts.logo;
 
-            self._operations = opts.operations;
-            self._toolbarName = _.uniqueId("toolbar");
-            self._logo = opts.logo;
-
-            self.$el.w2toolbar({
-                name: self._toolbarName,
-                items: [{ type: "button", id: self.placeholder }]
+            this.$el.w2toolbar({
+                name: this._toolbarName,
+                items: [{ type: "button", id: this.placeholder }]
             });
 
-            w2ui[self._toolbarName].on("click", function (event) {
-                self._onToolbarClick.apply(self, [event]);
+            w2ui[this._toolbarName].on("click", (event) => {
+                this._onToolbarClick.apply(this, [event]);
             });
 
-            w2ui[self._toolbarName].on("render", function (event) {
-                event.onComplete = function () {
-                    self._onToolbarAfterRender.apply(self, [event]);
+            w2ui[this._toolbarName].on("render", (event) => {
+                event.onComplete = () => {
+                    this._onToolbarAfterRender.apply(this, [event]);
                 };
             });
 
-            self._operations.on("add", function (fun) {
-                self._addFunctions.apply(self, [fun]);
+            this._operations.on("add", (fun) => {
+                this._addFunctions.apply(this, [fun]);
             });
 
-            self._addFunctions();
+            this._addFunctions();
 
-            w2ui[self._toolbarName].render();
+            w2ui[this._toolbarName].render();
         }
     });
 });

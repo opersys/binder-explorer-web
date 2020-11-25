@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,143 +17,187 @@
 define(function (require) {
     "use strict";
 
-    const d3 = require("d3");
     const _ = require("underscore");
     const Backbone = require("backbone");
 
+    class UndirectedLink {
+        constructor(a, b) {
+            if (!a) throw "cannot add invalid element in 'a'";
+            if (!b) throw "cannot add invalid element in 'b'";
+
+            this.a = a;
+            this.b = b;
+        }
+    }
+
+    class DirectedLink {
+        constructor(from, to) {
+            this.from = from;
+            this.to = to;
+        }
+    }
+
     const Directed = function () {
-        this._linksFrom = {};
-        this._linksTo = {};
+        this._linksFrom = new Map();
+        this._linksTo = new Map();
         _.extend(this, Backbone.Events);
     };
 
     const Undirected = function () {
-        this._linksFrom = {};
+        this._linksFrom = new Map();
         _.extend(this, Backbone.Events);
     };
 
-    Directed.prototype.getLinks = function (makeLinkCb) {
+    Directed.prototype.getLinks = function (makeLink) {
         let links = [], linkVal;
 
-        if (!makeLinkCb) throw "callback missing";
+        if (!makeLink) throw "callback missing";
 
-        Object.keys(this._linksFrom).forEach((from) => {
-            if (this._linksFrom[from] != null) {
-                this._linksFrom[from].forEach((to) => {
-                    linkVal = makeLinkCb(from, to);
-                    if (linkVal) links.push(linkVal);
-                });
-            }
-        });
+        for (let fromId of this._linksFrom.keys()) {
+            for (let toId of this._linksFrom.get(fromId).keys()) {
+                let link = this._linksFrom.get(fromId).get(toId);
 
-        return links;
-    };
-
-    Undirected.prototype.getLinks = function (makeLinkCb) {
-        let links = [], linkVal;
-        let doneLinks = d3.set();
-
-        if (!makeLinkCb) throw "callback missing";
-
-        Object.keys(this._linksFrom).forEach((x) => {
-            if (this._linksFrom[x] != null) {
-                this._linksFrom[x].forEach((y) => {
-                    var ak = x.toString() + "@@" + y.toString(),
-                        bk = y.toString() + "@@" + x.toString();
-
-                    // Handles deleted links.
-                    if (this._linksFrom[y] === null) {
-                        this._linksFrom[x].remove(y);
-                        return;
-                    }
-
-                    if (!doneLinks.has(ak) && !doneLinks.has(bk)) {
-                        doneLinks.add(ak);
-                        doneLinks.add(bk);
-
-                        linkVal = makeLinkCb(x, y);
-                        if (linkVal) links.push(linkVal);
-                    }
-                });
-            }
-        });
-
-        return links;
-    };
-
-    Directed.prototype.getLinksFrom = function (from, makeLinkCb) {
-        let links = [], linkVal;
-
-        if (!makeLinkCb) throw "callback missing";
-
-        if (this._linksFrom[from] != null) {
-            this._linksFrom[from].forEach((to) => {
-
-                // Handles deleted links
-                if (this._linksFrom[to] === null) {
-                    this._linksFrom[to].remove(to);
-                    return;
-                }
-
-                linkVal = makeLinkCb(from, to);
+                linkVal = makeLink(link.from, link.to);
                 if (linkVal) links.push(linkVal);
-            });
+            }
         }
 
         return links;
     };
 
-    Undirected.prototype.getLinksFrom = function (a, makeLinkCb) {
+    Undirected.prototype.getLinks = function (makeLink) {
         let links = [], linkVal;
+        let doneLinks = new Set();
 
-        if (!makeLinkCb) throw "callback missing";
+        if (!makeLink) throw "'makeLink' function missing";
 
-        if (this._linksFrom[a]) {
-            this._linksFrom[a].forEach((y) => {
-                if (this._linksFrom[y] === null)
-                    this._linksFrom[a].remove(y);
-                else {
-                    linkVal = makeLinkCb(a, y);
+        for (let aId of this._linksFrom.keys()) {
+            for (let bId of this._linksFrom.get(aId).keys()) {
+                let ak = aId + "@@" + bId,
+                    bk = bId + "@@" + aId;
+
+                // Handles deleted links.
+                if (!this._linksFrom.has(bId)) {
+                    this._linksFrom.get(aId).delete(bId);
+                    continue;
+                }
+
+                if (!doneLinks.has(ak) && !doneLinks.has(bk)) {
+                    doneLinks.add(ak);
+                    doneLinks.add(bk);
+
+                    let a = this._linksFrom.get(aId).get(bId).a;
+                    let b = this._linksFrom.get(aId).get(bId).b;
+
+                    linkVal = makeLink(a, b);
                     if (linkVal) links.push(linkVal);
                 }
-            });
+            }
         }
 
         return links;
     };
 
-    Directed.prototype.addLink = function (from, to) {
-        if (!this._linksFrom[from])
-            this._linksFrom[from] = d3.set();
+    Directed.prototype.getLinksFrom = function (from, id, makeLink) {
+        let fromId, links = [], linkVal;
 
-        this._linksFrom[from].add(to);
+        if (!id) throw "'id' function missing";
+        if (!makeLink) throw "'makeLink' function missing";
+
+        fromId = id(from);
+
+        if (this._linksFrom.get(fromId) != null) {
+            for (let toId of this._linksFrom.get(fromId).keys()) {
+
+                let from = this._linksFrom.get(fromId).get(toId).from;
+                let to = this._linksFrom.get(fromId).get(toId).to;
+
+                linkVal = makeLink(from, to);
+                if (linkVal) links.push(linkVal);
+            }
+        }
+
+        return links;
+    };
+
+    Undirected.prototype.getLinksFrom = function (a, id, makeLink) {
+        let aId, bId, links = [], linkVal;
+
+        if (!id) throw "'id' function missing";
+        if (!makeLink) throw "'makeLink' function missing";
+
+        aId = id(a);
+
+        if (this._linksFrom.has(aId)) {
+            for (bId of this._linksFrom.get(aId).keys()) {
+                if (!this._linksFrom.has(bId))
+                    this._linksFrom.get(aId).delete(bId);
+                else {
+                    let b = this._linksFrom.get(aId).get(bId).b;
+                    linkVal = makeLink(a, b);
+                    if (linkVal) links.push(linkVal);
+                }
+            }
+        }
+
+        return links;
+    };
+
+    Directed.prototype.addLink = function (from, to, id) {
+        let fromId, toId;
+
+        if (!id) throw "Id function missing";
+
+        fromId = id(from);
+        toId = id(to);
+
+        if (!this._linksFrom.has(fromId))
+            this._linksFrom.set(fromId, new Map());
+        if (!this._linksTo.has(toId))
+            this._linksTo.set(toId, new Map());
+
+        this._linksFrom.get(fromId).set(toId, new DirectedLink(from, to));
+        this._linksTo.get(toId).set(fromId, new DirectedLink(from, to));
 
         this.trigger("linkadded", from, to);
     };
 
-    Undirected.prototype.addLink = function (a, b) {
-        if (!this._linksFrom[a])
-            this._linksFrom[a] = d3.set();
+    Undirected.prototype.addLink = function (a, b, id) {
+        let aId, bId;
 
-        if (!this._linksFrom[b])
-            this._linksFrom[b] = d3.set();
+        if (!id) throw "Id function missing";
 
-        this._linksFrom[a].add(b);
-        this._linksFrom[b].add(a);
+        aId = id(a);
+        bId = id(b);
+
+        if (!this._linksFrom.has(aId))
+            this._linksFrom.set(aId, new Map());
+
+        if (!this._linksFrom.has(bId))
+            this._linksFrom.set(bId, new Map());
+
+        let linkA = new UndirectedLink(a, b);
+        let linkB = new UndirectedLink(b, a);
+
+        this._linksFrom.get(aId).set(bId, linkA);
+        this._linksFrom.get(bId).set(aId, linkB);
 
         this.trigger("linkadded", a, b);
     };
 
-    Undirected.prototype.removeAll = function (a) {
-        let oldLinks;
+    Undirected.prototype.removeAll = function (a, id) {
+        let oldLinks, aId;
 
-        if (this._linksFrom[a]) {
-            oldLinks = this._linksFrom[a];
-            this._linksFrom[a] = null;
+        if (!id) throw "Id function missing";
 
-            oldLinks.forEach((b) => {
-                this.trigger("linkremoved", a, b);
-            });
+        aId = id(a);
+
+        if (this._linksFrom.has(aId)) {
+            oldLinks = this._linksFrom.get(aId);
+            this._linksFrom.delete(aId);
+
+            for (let bId in oldLinks.keys())
+                this.trigger("linkremoved", a, oldLinks.get(bId).b);
         }
     };
 

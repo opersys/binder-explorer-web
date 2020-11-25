@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,17 +24,17 @@ define(function (require) {
     const Linker = require("linkhandler");
     const _ = require("underscore");
 
-    const UserServiceLinkHandler = function (processes) {
+    const ProcServiceLinkHandler = function (processes) {
         this._processes = processes;
         this._links = new Linker.Directed();
 
         _.extend(this, Backbone.Events);
 
-        this._processes.on("serviceadded", (s) => {
+        this._processes.on("processserviceadded", (s) => {
             this._onNewProcessService(s);
         });
 
-        this._processes.on("serviceremoved", (s) => {
+        this._processes.on("processserviceremoved", (s) => {
             this._onRemoveProcessService(s);
         });
 
@@ -47,41 +47,50 @@ define(function (require) {
         });
     };
 
-    UserServiceLinkHandler.prototype.getLinks = function (makeLinkCb) {
-        return this._links.getLinks(makeLinkCb);
+    ProcServiceLinkHandler.prototype.id = (m) => {
+        if (m.hasOwnProperty('pid'))
+            return m.pid;
+        else
+            return m.get("pid");
     };
 
-    UserServiceLinkHandler.prototype.getLinksFrom = function (a, makeLinkCb) {
-        return this._links.getLinksFrom(a, makeLinkCb);
+    ProcServiceLinkHandler.prototype.getLinks = function (makeLink) {
+        return this._links.getLinks(makeLink);
     };
 
-    UserServiceLinkHandler.prototype._onLinkAdded = function (serviceLinks, args) {
+    ProcServiceLinkHandler.prototype.getLinksFrom = function (a, makeLink) {
+        return this._links.getLinksFrom(a, this.id, makeLink);
+    };
+
+    ProcServiceLinkHandler.prototype._onLinkAdded = function (serviceLinks, args) {
         let processFrom = this._processes.get(args[0]);
         let processTo = this._processes.get(args[1]);
 
         this.trigger("linkadded", processFrom, processTo);
     };
 
-    UserServiceLinkHandler.prototype._onLinkRemoved = function (serviceLinks, args) {
+    ProcServiceLinkHandler.prototype._onLinkRemoved = function (serviceLinks, args) {
         let processFromPid = args[0];
         let processToPid = args[1];
 
         this.trigger("linkremoved", processFromPid, processToPid);
     };
 
-    UserServiceLinkHandler.prototype._onNewProcessService = function (userService) {
-        userService.clients.forEach((pid) => {
-            if (this._processes.get(pid) !== null)
+    ProcServiceLinkHandler.prototype._onNewProcessService = function (procService) {
+        procService.clients.forEach((toPid) => {
+            if (this._processes.get(toPid) !== null) {
+                let fromProc = this._processes.get(procService.pid);
+                let toProc = this._processes.get(toPid);
 
-                // Filter out self-referential service, which can be rendered.
-                if (userService.pid !== pid)
-                    this._links.addLink(userService.pid, pid);
-            else
-                console.log("Target process " + pid + " unknown. Can't make user service link.");
+                // Filter out self-referential service, which can't be rendered.
+                if (procService.pid !== toPid)
+                    this._links.addLink(fromProc, toProc, this.id);
+            }
+            else console.log(`Target process ${toPid} unknown. Can't make process service link`);
         });
     };
 
-    UserServiceLinkHandler.prototype._onRemoveProcessService = function (userService) {};
+    ProcServiceLinkHandler.prototype._onRemoveProcessService = function (procService) {};
 
-    return UserServiceLinkHandler;
+    return ProcServiceLinkHandler;
 });

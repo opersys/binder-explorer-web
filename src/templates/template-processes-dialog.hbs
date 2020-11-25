@@ -48,14 +48,14 @@ limitations under the License.
         </div>
     {{/if}}
 
-    {{#if hasUserServices}}
+    {{#if hasProcServices}}
         <div class="panel panel-default">
             <div class="panel-heading">
-                <h4 class="panel-title">User services</h4>
+                <h4 class="panel-title">Process services</h4>
             </div>
             <div class="panel-body">
                 <ul>
-                    {{#each userServices}}
+                    {{#each procServices}}
                         <li>{{this.intent}}</li>
                     {{/each}}
                 </ul>

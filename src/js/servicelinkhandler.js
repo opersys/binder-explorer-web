@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,16 +25,18 @@ define(function (require) {
     const Linker = require("linkhandler");
     const _ = require("underscore");
 
-    const ServiceLinkHandler = function (services, processes) {
-        this._services = services;
+    const ServiceLinkHandler = function (binders, processes) {
+        this._binders = binders;
         this._processes = processes;
-        this._pendingServiceLinks = {};
+        this._pendingServiceLinks = new Map();
         this._links = new Linker.Undirected();
 
         _.extend(this, Backbone.Events);
 
-        this._services.on("add", (m, c, opts) => {
-            this._onNewService(m, c, opts);
+        binders.on("add", (binder) => {
+            binder.get("services").on("add", (m, c, opts) => {
+                this._onNewService(m, c, opts);
+            });
         });
 
         this._processes.on("add", (m, c, opts) => {
@@ -45,83 +47,86 @@ define(function (require) {
             this._onRemoveProcess(m, c, opts);
         });
 
-        this._links.on("linkadded", (f, t) => {
-            this._onLinkAdded(f, t);
+        this._links.on("linkadded", (from, to) => {
+            this._onLinkAdded(from, to);
         });
 
-        this._links.on("linkremoved", (f, t) => {
-            this._onLinkRemoved(f, t);
+        this._links.on("linkremoved", (from, to) => {
+            this._onLinkRemoved(from, to);
         });
     };
 
-    ServiceLinkHandler.prototype.getLinks = function (makeLinkCb) {
-        return this._links.getLinks(makeLinkCb);
+    ServiceLinkHandler.prototype.id = (m) => {
+        if (m.has("name"))
+            return m.collection.getBinderName() + "%%" + m.get("name");
+        else if (m.has("process"))
+            return m.get("pid");
+
+        throw `You passed me a weird object here: ${m}`;
     };
 
-    ServiceLinkHandler.prototype.getLinksFrom = function (a, makeLinkCb) {
-        return this._links.getLinksFrom(a, makeLinkCb);
+    ServiceLinkHandler.prototype.getLinks = function (id, makeLinkCb) {
+        return this._links.getLinks(id, makeLinkCb);
     };
 
-    ServiceLinkHandler.prototype._onLinkAdded = function (serviceLinks, args) {
-        let process = this._processes.get(args[0]);
-        let service = this._services.get(args[1]);
+    ServiceLinkHandler.prototype.getLinksFrom = function (a, id, makeLinkCb) {
+        return this._links.getLinksFrom(a, id, makeLinkCb);
+    };
 
+    ServiceLinkHandler.prototype._onLinkAdded = function (process, service) {
         this.trigger("linkadded", process, service);
     };
 
-    ServiceLinkHandler.prototype._onLinkRemoved = function (serviceLinks, args) {
-        let pid = args[0];
-        let serviceName = args[1];
-
-        this.trigger("linkremoved", pid, serviceName);
+    ServiceLinkHandler.prototype._onLinkRemoved = function (process, service) {
+        this.trigger("linkremoved", process, service);
     };
 
-    ServiceLinkHandler.prototype._onNewService = function (service) {
-        console.log("Service " + service.get("name") + " [Node: " + service.get("node") + "]" + " being added.");
+    ServiceLinkHandler.prototype._onNewService = function (service, services) {
+        let binderName = services.getBinderName();
 
         // Notify the that a service was added.
-        this.trigger("serviceadded", service);
+        this.trigger("serviceadded", binderName, service);
 
         // Update the links
-        if (this._pendingServiceLinks[service.get("node")]) {
-            var pendingLinks = this._pendingServiceLinks[service.get("node")];
+        if (this._pendingServiceLinks.has(service.get("node"))) {
+            let pendingLinks = this._pendingServiceLinks.get(service.get("node"));
 
-            pendingLinks.forEach((processPid) => {
-                var process = this._processes.get(processPid);
-                this._links.addLink(process.get("pid"), service.get("name"));
+            for (let processPid of pendingLinks) {
+                let process = this._processes.get(processPid);
+                this._links.addLink(process, service, this.id);
                 this.trigger("linkadded", process, service);
 
-                console.log("Resolved pending link from " + service.get("node") + " to " + process.get("pid"));
-            });
+                console.log(`Resolved pending link from service ${service.get("name")} to PID ${process.get("pid")} (left pending: ${pendingLinks.length})`);
+            }
         }
     };
 
     ServiceLinkHandler.prototype._onNewProcess = function (process) {
-        let srefs = process.getServiceRefs("binder");
+        let srefs = process.getServiceRefs();
         let krefs = srefs.knownRefs;
         let urefs = srefs.unknownRefs;
 
-        console.log("Process " + process.get("pid") + " being added.");
+        console.log(`Process ${process.get("pid")} being added (${krefs.length} known refs, ${urefs.length} unknown refs)`);
 
         this.trigger("processadded", process);
 
-        krefs.forEach((service) => {
-            this._links.addLink(process.get("pid"), service.get("name"));
+        for (let service of krefs) {
+            this._links.addLink(process, service, this.id);
             this.trigger("linkadded", process, service);
-        });
+        }
 
-        urefs.forEach((uref) => {
-            if (!this._pendingServiceLinks[uref])
-                this._pendingServiceLinks[uref] = d3.set();
+        for (let uref of urefs) {
+            if (!this._pendingServiceLinks.get(uref))
+                this._pendingServiceLinks.set(uref, new Set());
 
-            console.log("Pending link from " + uref + " to " + process.get("pid"));
+            console.log(`Pending link from Node ${uref} to PID ${process.get("pid")} (pending: ${this._pendingServiceLinks.size})`);
 
-            this._pendingServiceLinks[uref].add(process.get("pid"));
-        });
+            this._pendingServiceLinks.get(uref).add(process.get("pid"));
+        }
     };
 
     ServiceLinkHandler.prototype._onRemoveProcess = function (process) {
-        console.log("Process " + process.get("pid") + " being removed.");
+        console.log(`PID ${process.get("pid")} being removed`);
 
         this._links.removeAll(process.get("pid"));
         this.trigger("processremoved", process.get("pid"));

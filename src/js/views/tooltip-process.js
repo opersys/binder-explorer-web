@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,31 +21,26 @@ define(function (require) {
     return Backbone.View.extend({
 
         initialize: function (opts) {
-            var self = this;
+            this._tmplProcess = Templates["./src/templates/template-processes.hbs"];
+            this._tip = opts.tip;
+            this._process = opts.process;
 
-            self._tmplProcess = Templates["./src/templates/template-processes.hbs"];
-            self._tip = opts.tip;
-            self._process = opts.process;
-
-            self._tip.html(function () {
-                return self._tmplProcess({
-                    pid: self._process.get("pid"),
-                    name: self._process.getFriendlyName(),
-                    serviceCount: self._process.get("services").length,
-                    hasServices: self._process.get("services").length > 0
+            this._tip.html(() => {
+                return this._tmplProcess({
+                    pid: this._process.get("pid"),
+                    name: this._process.getFriendlyName(),
+                    serviceCount: this._process.get("services").length,
+                    hasServices: this._process.get("services").length > 0
                 });
             });
         },
 
         render: function () {
-            var self = this;
-            self._tip.show(self._process);
+            this._tip.show(this._process);
         },
 
         hide: function () {
-            var self = this;
-
-            self._tip.hide();
+            this._tip.hide();
         }
     });
 });

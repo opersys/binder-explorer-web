@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Opersys inc.
+ * Copyright (C) 2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,8 @@
 
 define(function (require) {
     const Backbone = require("backbone");
-    const BinderProcess = require("models/BinderProcess");
 
-    return Backbone.Collection.extend({
-        url: "/binder/procs",
-        model: BinderProcess,
-
-        initialize: function (_, opts) {
-            this._binders = opts.binders;
-        },
-
-        getBinders: function () {
-            return this._binders;
-        }
+    return Backbone.Model.extend({
+        idAttribute: "name",
     });
 });

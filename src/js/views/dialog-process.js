@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,60 +17,56 @@
 define(function (require) {
     "use strict";
 
-    var Backbone = require("backbone");
-    var Templates = require("templates");
-    var _ = require("underscore");
+    const Backbone = require("backbone");
+    const Templates = require("templates");
+    const $ = require("jquery");
+    const _ = require("underscore");
 
     return Backbone.View.extend({
 
         _dialogId: _.uniqueId("dialog"),
 
         initialize: function (opts) {
-            var self = this;
-
-            self._tmplDialogProcess = Templates["./src/templates/template-processes-dialog.hbs"];
-            self._process = opts.process;
-            self._processes = opts.processes;
-            self._services = opts.services;
-            self._serviceLinks = opts.serviceLinks;
+            this._tmplDialogProcess = Templates["./src/templates/template-processes-dialog.hbs"];
+            this._process = opts.process;
+            this._processes = opts.processes;
+            this._services = opts.services;
+            this._linkhandler = opts.linkhandler;
         },
 
         _onDialogOpen: function (event) {
-            var self = this;
-
-            event.onComplete = function () {
-                self._setServiceNameDialogs();
+            event.onComplete = () => {
+                this._setServiceNameDialogs();
             };
         },
 
         _setServiceNameDialogs: function () {
-            var self = this, $snLinks;
+            let $snLinks;
 
-            $snLinks = $("#" + self._dialogId + " .serviceLink");
+            $snLinks = $("#" + this._dialogId + " .serviceLink");
 
-            $snLinks.each(function () {
-                $(this).click(function (event) {
-                    var ServiceDialog = require("views/dialog-service");
+            $snLinks.each(() => {
+                $(this).click((event) => {
+                    let ServiceDialog = require("views/dialog-service");
 
-                    var sn = $(this).attr("data");
+                    let sn = $(this).attr("data");
 
                     new ServiceDialog({
-                        service: self._services.get(sn),
-                        processes: self._processes,
-                        services: self._services,
-                        serviceLinks: self._serviceLinks
+                        service: this._services.get(sn),
+                        processes: this._processes,
+                        services: this._services,
+                        linkhandler: this._linkhandler
                     }).render();
                 });
             });
         },
 
         render: function () {
-            var self = this;
-            var outboundLinks, hasOutboundLinks, outboundLinksGroups;
-            var userServices, hasUserServices;
+            let outboundLinks, hasOutboundLinks, outboundLinksGroups;
+            let procServices, hasProcServices;
 
-            outboundLinks = self._serviceLinks.getLinksFrom(self._process.get("process").get("pid"), function (a, b) {
-                return b;
+            outboundLinks = this._linkhandler.getLinksFrom(this._process, this._linkhandler.id, (_, b) => {
+                return b.get("name");
             }).sort();
             outboundLinksGroups = _.groupBy(outboundLinks,
                 function (value, idx) {
@@ -78,32 +74,33 @@ define(function (require) {
                 });
             hasOutboundLinks = outboundLinks.length > 0;
 
-            userServices = _.map(self._process.get("services"), function (s) {
+            procServices = this._process.get("services").map((s) => {
                 return {
                     intent: s.intent,
                     pkg: s.pkg
                 };
             });
-            hasUserServices = userServices.length > 0;
+
+            hasProcServices = procServices.length > 0;
 
             // See dialog-service.js for explanation about this hack.
-            window.__view = self;
+            window.__view = this;
 
             w2popup.open({
                 title: "Process details",
                 width: 600,
                 height: 400,
-                body: self._tmplDialogProcess({
-                    id: self._dialogId,
-                    pid: self._process.get("process").get("pid"),
-                    cmdline: self._process.get("process").get("cmdline")[0],
+                body: this._tmplDialogProcess({
+                    id: this._dialogId,
+                    pid: this._process.get("process").get("pid"),
+                    cmdline: this._process.get("process").get("cmdline")[0],
                     outboundLinks: outboundLinksGroups,
                     hasOutboundLinks: hasOutboundLinks,
-                    userServices: userServices,
-                    hasUserServices: hasUserServices
+                    procServices: procServices,
+                    hasProcServices: hasProcServices
                 }),
-                onOpen: function (event) {
-                    self._onDialogOpen.apply(window.__view, [event]);
+                onOpen: (event) => {
+                    this._onDialogOpen.apply(window.__view, [event]);
                 }
             });
         }

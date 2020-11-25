@@ -27,7 +27,7 @@
     "grunt-bower": "^0.21.4",
     "grunt-bower-concat": "^1.0.0",
     "grunt-bower-requirejs": "^2.0.0",
-    "grunt-chmod": "*",
+    "grunt-chmod": "^1.1.1",
     "grunt-contrib-compress": "*",
     "grunt-contrib-copy": "*",
     "grunt-contrib-handlebars": "0.10.2",
@@ -35,6 +35,7 @@
     "grunt-mkdir": "*",
     "handlebars": "4.7.6",
     "intern": "^3.0.0",
+    "jsdom": "^16.4.0",
     "md5-file": "^2.0.4",
     "tarball-extract": "0.0.6"
   }

@@ -73,13 +73,13 @@ circle.node.selected {
 }
 
 /* Color of links between user processes */
-line.userlink {
+line.proclink {
     stroke: Blue;
     stroke-width: 2;
 }
 
 /* Color of links between processes */
-line.userlink.hover {
+line.proclink.hover {
     stroke: DarkBlue;
     stroke-width: 3;
 }

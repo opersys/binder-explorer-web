@@ -16,9 +16,9 @@
 
 "use strict";
 
+const assert = require("assert");
 const async = require("async");
 const express = require("express");
-const exStatic = require("serve-static");
 const path = require("path");
 const http = require("http");
 const pslook = require("pslook");
@@ -40,7 +40,11 @@ const ActivityManager = require("./ActivityManager.js");
 // Express application
 const app = express();
 const server = http.createServer(app);
-const serviceManager = new ServiceManager.ServiceManager();
+const serviceManagers = {
+    "binder": new ServiceManager.ServiceManager(),
+    "hwbinder": new ServiceManager.HwServiceManager(),
+    "vndbinder": new ServiceManager.VndServiceManager()
+};
 
 var argv = require("yargs")
     .options({
@@ -240,147 +244,6 @@ app.get("/icon/:app", (req, res) => {
     });
 });
 
-// Routes.
-app.get("/proc", (req, res) => {
-    var pslook_domain = domain.create();
-
-    pslook_domain.on("error", (err) => {
-        debug("Error in pslook: " + err);
-        res.status(404).end();
-    });
-
-    pslook_domain.run(() => {
-        pslook.list((err, processes) => {
-            var procsData = [];
-
-            if (err)
-                res.status(404).end();
-
-            async.each(processes, (item, callback) => {
-                try {
-                    pslook.read(item.pid, (err, procData) => {
-                        if (err) {
-                            callback(err);
-                        } else {
-                            procsData.push(procData);
-                            callback();
-                        }
-                    }, {fields: pslook.ALL});
-                } catch (ex) {
-                    debug("Failed to read process " + item.pid);
-                    res.status(404).end();
-                }
-            }, () => {
-                res.json(procsData).end();
-            });
-        }, {fields: pslook.ALL});
-    });
-});
-
-app.get("/proc/:pid", (req, res) => {
-    var pslook_domain = domain.create();
-
-    pslook_domain.on("error", (err) => {
-        debug("Error in pslook: " + err);
-        res.status(404).end();
-    });
-
-    pslook_domain.run(() => {
-        pslook.read(req.params.pid, (err, process) => {
-            if (err) {
-                res.status(404).end();
-            } else {
-                res.json(process).end();
-            }
-        }, {fields: pslook.ALL});
-    });
-});
-
-function getBinderProcs(binderName) {
-    return (req, res) => {
-        try {
-            BinderUtils.readBinderStateFile((binderData) => {
-                res.json(Object.keys(binderData[binderName]).map((binderProcPid) => {
-                    return { pid: binderProcPid  };
-                }));
-            });
-        } catch (ex) {
-            res.status(404).send();
-        }
-    };
-}
-
-function getBinderProc(binderName) {
-    return (req, res) => {
-        try {
-            BinderUtils.readBinderStateFile((binderProcs) => {
-                if (binderProcs[req.params.pid])
-                    res.json(binderProcs[req.params.pid]);
-                else
-                    res.status(404).send();
-            });
-        } catch (ex) {
-            res.status(404).send();
-        }
-    };
-}
-
-function getBinderService(binderName) {
-    return (req, res) => {
-        try {
-            // Make a catalog of node IDs to PID because findServiceNodeId doesn't provide
-            // us with the PID.
-            BinderUtils.readBinderStateFile(function (binderData) {
-                var binderProcsByNode = {};
-
-                Object.keys(binderData[binderName]).forEach((binderPid) => {
-                    binderData[binderName][binderPid].nodes.forEach((nodeData) => {
-                        binderProcsByNode[nodeData.id] = {};
-                        binderProcsByNode[nodeData.id] = binderData[binderName][binderPid];
-                        binderProcsByNode[nodeData.id].node = nodeData.id;
-                        binderProcsByNode[nodeData.id].pid = binderPid;
-                    });
-                });
-
-                BinderUtils.findServiceNodeId(app.get("directory"), req.params.serviceName, (node, iface) => {
-                    var response = {};
-
-                    if (!node && !iface)
-                        res.json(response);
-                    else {
-                        if (iface) response.iface = iface;
-
-                        response.node = node;
-                        response.pid = binderProcsByNode[node].pid;
-
-                        res.json(response);
-                    }
-                });
-            });
-        } catch (ex) {
-            res.status(404).send();
-        }
-    };
-}
-
-app.get("/binder/procs", getBinderProcs("binder"));
-app.get("/hwbinder/procs", getBinderProcs("hwbinder"));
-app.get("/vndbinder/procs", getBinderProcs("vndbinder"));
-
-app.get("/binder/procs/:pid([0-9]+)", getBinderProc("binder"));
-app.get("/hwbinder/procs/:pid([0-9]+)", getBinderProc("hwbinder"));
-app.get("/vndbinder/procs/:pid([0-9]+)", getBinderProc("vndbinder"));
-
-app.get("/binder/services/:serviceName", getBinderService("binder"));
-app.get("/hwbinder/services/:serviceName", getBinderService("hwbinder"));
-app.get("/vndbinder/services/:serviceName", getBinderService("vndbinder"));
-
-app.get("/binder/services", (req, res) => {
-    res.json(serviceManager.all().map((service) => {
-        return { name: service.name };
-    }));
-});
-
 app.get("/aidl/:serviceName/:serviceClassName", (req, res) => {
     fetchAidl(req.params.serviceName, req.params.serviceClassName, {
         success: (raidlBuf) => {
@@ -395,16 +258,27 @@ app.get("/aidl/:serviceName/:serviceClassName", (req, res) => {
 });
 
 function setCustomHeaders(res, path) {
-    if (new RegExp(".css$").test(path))
+    if (path.endsWith(".css"))
         res.setHeader("Content-type", "text/css");
+    else if (path.endsWith(".js"))
+        res.setHeader("Content-type", "application/javascript");
+    else
+        res.setHeader("Content-type", "text/html");
 }
 
-// Static files.
-app.use(exStatic(path.join(__dirname, "public"), {
+// node_modules directory, treated as static file.
+app.use("/node_modules", express.static(path.join(__dirname, "node_modules"), {
     index: false,
     setHeaders: setCustomHeaders
 }));
-app.get("/", (req, res) => { res.redirect("/index.html"); });
+
+// Static files.
+app.use("/app", express.static(path.join(__dirname, "public"), {
+    index: false,
+    setHeaders: setCustomHeaders
+}));
+
+app.get("/", (req, res) => { res.redirect("/app/index.html"); });
 
 var io = new SocketIO({ transports: ["websocket"] });
 var binderWatcher = new BinderWatcher(app.get("directory"));

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Opersys inc.
+ * Copyright (C) 2015-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,26 +18,50 @@ define(function (require) {
     let $ = require("jquery");
     let MainView = require("views/main");
     let Toolbar = require("views/toolbar");
-    let BinderProcesses = require("models/BinderProcesses");
-    let BinderServices = require("models/BinderServices");
-    let Operations = require("models/Operations");
-    let Operation = require("models/Operation");
-    let ServiceLinkHandler = require("servicelinkhandler");
-    let UserServiceLinkHandler = require("userservicelinkhandler");
 
-    let binderServices = new BinderServices();
-    let binderProcesses = new BinderProcesses([], { binderServices: binderServices });
-    let serviceLinks = new ServiceLinkHandler(binderServices, binderProcesses);
-    let userServiceLinks = new UserServiceLinkHandler(binderProcesses);
+    const Binder = require("models/Binder");
+    const Binders = require("models/Binders");
+    const BinderProcesses = require("models/BinderProcesses");
+    const BinderServices = require("models/BinderServices");
+    const Operations = require("models/Operations");
+    const Operation = require("models/Operation");
+    const ServiceLinkHandler = require("servicelinkhandler");
+    const ProcessServiceLinkHandler = require("procservicelinkhandler");
+
+    let binders = new Binders();
     let operations = new Operations();
+
+    // There is a single process collection passed around.
+    let processes = new BinderProcesses([], {binders: binders});
+
+    let binderServices = new BinderServices([], {binderName: "binder"});
+    let hwbinderServices = new BinderServices([], {binderName: "hwbinder"});
+    let vndbinderServices = new BinderServices([], {binderName: "vndbinder"});
+    let linkhandler = new ServiceLinkHandler(binders, processes);
+    let proclinkhandler = new ProcessServiceLinkHandler(processes);
+
+    binders.add(new Binder({
+        name: "binder",
+        services: binderServices,
+    }));
+
+    binders.add(new Binder({
+        name: "hwbinder",
+        services: hwbinderServices,
+    }));
+
+    binders.add(new Binder({
+        name: "vndbinder",
+        services: vndbinderServices
+    }));
 
     let mainView = new MainView({
         el: $("#app"),
-        binderServices: binderServices,
-        binderProcesses: binderProcesses,
-        serviceLinks: serviceLinks,
-        userServiceLinks: userServiceLinks,
-        operations: operations
+        binders: binders,
+        operations: operations,
+        processes: processes,
+        linkhandler: linkhandler,
+        proclinkhandler: proclinkhandler
     });
 
     let mainToolbar = new Toolbar({

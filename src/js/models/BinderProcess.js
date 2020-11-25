@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Opersys inc.
+ * Copyright (C) 2014-2020 Opersys inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,32 +37,35 @@ define(function (require) {
             return this.get("pid");
         },
 
-        addUserService: function (userService) {
+        addProcessService: function (procService) {
             let currentServices = this.get("services");
 
-            if (!currentServices.some((cs) => userService.intent == cs.intent)) {
-                currentServices.push(userService);
+            if (!currentServices.some((cs) => procService.intent == cs.intent)) {
+                currentServices.push(procService);
                 this.set("services", currentServices);
-                this.trigger("serviceadded", userService);
+                this.trigger("processserviceadded", procService);
             }
         },
 
-        removeUserService: function (userService) {
+        removeProcessService: function (procService) {
             let currentServices = this.get("services");
 
-            this.set("services", currentServices.filter(() => userService.intent !== cs.intent));
-            this.trigger("serviceremoved", userService);
+            this.set("services", currentServices.filter((cs) => procService.intent !== cs.intent));
+            this.trigger("processserviceremoved", procService);
         },
 
-        getServiceRefs: function (binderName) {
-            let serviceRefs = [], unknownRefs = [], i;
+        getServiceRefs: function () {
+            let serviceRefs = [], unknownRefs = [];
 
-            this.get(binderName)["refs"].forEach((ref) => {
-                if ((i = this.collection.getServiceByNode(ref.node)))
-                    serviceRefs.push(i);
+            for (let ref of this.get("refs")) {
+                let services = this.collection.getBinders().getServicesByNode(ref.node);
+
+                if (services.length > 0)
+                    for (let service of services)
+                        serviceRefs.push(service);
                 else
                     unknownRefs.push(ref.node);
-            });
+            }
 
             return { knownRefs: serviceRefs, unknownRefs: unknownRefs };
         }
