@@ -1,0 +1,58 @@
+cc_binary {
+    name: "grabservice",
+
+    proprietary: true,
+    srcs: ["grabservice.cpp"],
+
+    shared_libs: [
+        "libcutils",
+        "libutils",
+        "libbinder",
+    ],
+
+    cflags: [
+        "-DXP_UNIX",
+        "-Wall",
+        "-Werror",
+    ],
+}
+
+cc_binary {
+    name: "grabservice-hw",
+
+    proprietary: true,
+    srcs: ["grabservice-hw.cpp"],
+
+    shared_libs: [
+        "libcutils",
+        "libutils",
+        "libbinder",
+        "libhidlbase"
+    ],
+
+    cflags: [
+        "-DXP_UNIX",
+        "-Wall",
+        "-Werror",
+    ],
+}
+
+cc_binary {
+    name: "grabservice-vnd",
+
+    proprietary: true,
+    srcs: ["grabservice.cpp"],
+
+    shared_libs: [
+        "libcutils",
+        "libutils",
+        "libbinder",
+    ],
+
+    cflags: [
+        "-DVENDORSERVICES",
+        "-DXP_UNIX",
+        "-Wall",
+        "-Werror",
+    ],
+}
