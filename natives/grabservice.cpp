@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <iostream>
 #include <utils/String16.h>
 #include <binder/IServiceManager.h>
 
