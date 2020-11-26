@@ -19,13 +19,38 @@ const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
 const util = require("util");
+const cp = require("child_process");
 
 const ServiceManager = require("./ServiceManager.js");
 const Binder = require("./DataObjects.js");
 const debug = require("debug")("be:utils");
 
+var stateFilePath;
+
+/**
+ * Determine where are the binder logs depending on the Android
+ * version. This is not expected to change over the lifetime of
+ * program so we keep it in a global variable.
+ */
+function getStateFilePath() {
+    if (!stateFilePath) {
+        let proc = cp.spawnSync("getprop", ["ro.system.build.version.sdk"]);
+        let api = proc.stdout.toString().trim();
+
+        /*
+         * Android 11 moved the binder logs elsewhere.
+         */
+        if (api == "30")
+            stateFilePath = "/dev/binderfs/binder_logs/state";
+        else
+            stateFilePath = "/sys/kernel/debug/binder/state";
+    }
+
+    return stateFilePath;
+}
+
 let readBinderStateFile = (successCallback, errorCallback) => {
-    let stateFile = "/dev/binderfs/binder_logs/state",
+    let stateFile = getStateFilePath(),
         currentProcPid = null,
         currentProc = null,
         currentContextName = null,
