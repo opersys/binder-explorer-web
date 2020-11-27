@@ -86,7 +86,6 @@ module.exports = function (grunt) {
             files: [
                 { src: ["package.json"], dest: mkdist("/") },
                 { src: ["bower.json"], dest: mkdist("/") },
-                { expand: true, cwd: "bin", src: ["*.apk"], dest: mkdist("_bin") },
                 { expand: true, cwd: `bin/${arch}`, src: ["**"], dest: mkdist("_bin") },
                 { expand: true, cwd: "images", src: ["**"], dest: mkdist("public", "images") },
                 { expand: true, cwd: "src/css", src: ["*"], dest: mkdist("public", "css") },
