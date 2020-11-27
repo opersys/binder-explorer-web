@@ -262,7 +262,7 @@ class BinderWatcher extends EventEmitter {
                     next("Failed to read process data from /proc: " + err);
                 else {
                     /* HACK: Discard 'grabservice' processes. */
-                    if (procData.cmdline[0].indexOf("grabservice") == -1) {
+                    if (procData.cmdline && procData.cmdline[0].indexOf("grabservice") == -1) {
                         proc.process = procData;
                         next();
                     }
