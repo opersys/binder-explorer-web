@@ -1,0 +1,3 @@
+#!/system/bin/sh
+
+DEBUG=be* _bin/node app.js

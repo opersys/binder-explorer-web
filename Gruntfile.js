@@ -86,6 +86,7 @@ module.exports = function (grunt) {
             files: [
                 { src: ["package.json"], dest: mkdist("/") },
                 { src: ["bower.json"], dest: mkdist("/") },
+                { expand: true, cwd: '.', src: ["run"], dest: mkdist("") },
                 { expand: true, cwd: `bin/${arch}`, src: ["**"], dest: mkdist("_bin") },
                 { expand: true, cwd: "images", src: ["**"], dest: mkdist("public", "images") },
                 { expand: true, cwd: "src/css", src: ["*"], dest: mkdist("public", "css") },
@@ -113,7 +114,8 @@ module.exports = function (grunt) {
         chmod_config["dist_" + arch] = {
             options: {mode: '755'},
             files: {
-                src: [mkdist("_bin/node"),
+                src: [mkdist("run"),
+                      mkdist("_bin/node"),
                       mkdist("_bin/grabservice"),
                       mkdist("_bin/grabservice-hw"),
                       mkdist("_bin/grabservice-vnd")]
