@@ -1,58 +1,80 @@
-# How to run this project
+# Tested on:
 
-This project has been designed to be integrated inside and AOSP tree. It has been tested on the HiKey 620 board (arm64) and on the x86_64 emulator. It should work with minimal modifications on the ia32 emulator on other arm boards supporting Android.
+* HiKey 620
+* Android 10 for BeagleBone Black 
+* Emulator
 
-Before following those steps, you need to use the https://github.com/fdgonthier/Aosp-Node-Prebuilts project so that a Node.js binary is present on your target. Binder Explorer requires Node.js and will not work without it.
+# How to run this project using prebuilt packages
 
-If you do not want to setup a Node.js environment, you can download the prebuilt package for the most current version. This package is larger but include all the dependencies required for Binder Explorer to work. The package is available in the Releases section of the GitHub repository. If you use that package, skip the following steps to up until running "mm".
+We've made available 3 prepared packages using the Releases feature of GitHub
 
-If you do not want or can't use the prebuilt package, you need to setup a working Node.js environment. See https://nodejs.org/en/download/package-manager/ to install it on your computer
+x86-64:https://github.com/opersys/binder-explorer-web/releases/download/v0.5/binder-explorer_x86-64.tar.gz
 
-If you want to build from source, checkout the project in your AOSP tree.
+ARM 32 bits: https://github.com/opersys/binder-explorer-web/releases/download/v0.5/binder-explorer_arm.tar.gz
 
-> git checkout 
+ARM 64 bits: https://github.com/opersys/binder-explorer-web/releases/download/v0.5/binder-explorer_arm64.tar.gz
 
-Install the required packages:
+To use any of those release packages:
 
-> $ npm install
+- Forward port 3000 to your local computer with *adb*
+```
+$ adb forward tcp:3000 tcp:3000
+```
 
-Install the required client side package (you might have to install the `bower` npm package)
+- Use *adb push* to move the package corresponding to your device architecture to a directory. We generally use */data/local/tmp* for demonstrations
+```
+$ adb push binder-explorer_x86_64.tar.gz /data/local/tmp
+```
 
-> $ bower install
+- Enter your device *adb* shell:
+```
+$ adb shell
+$ cd /data/local/tmp
+```
 
-Assemble the package to install on the device:
+- Extract the *.tar.gz* file locally
+```
+$ tar -zxvf binder-explorer_x86_64.tar.gz
+```
 
-> $ grunt [x86_64|arm64]
+- Move to the directory that was created following the extraction
+```
+$ cd dist_x86_64
+```
 
-Run 'mm' to insert the application on the device
+- Use the *run* script in that directory to start Binder Explorer
+```
+$ ./run
+```
 
-> $ mm
+# How to build this project
 
-# Running
+You need a recent version of [Node.js](https://nodejs.org/en/) to build the distributions. There are prebuilt binaries in the *bin* directory which will be copied to the distribution output but besides that, Binder Explorer is a fairly straightforward Node.js project.
 
-The application can be run from the ADB shell but you need to forward ports first:
+Make sure you've got *bower* installed globally:
+``` 
+$ npm install -g bower
+```
 
-> $ adb forward tcp:3000 tcp:3000
+- Install the server side packages:
+```
+$ npm install
+```
 
-You can then run the application from within the ADB shell:
+- Install the client side packages:
+```
+$ bower install
+```
 
-> $ OsysBE
+- Assemble the distribution for the target architecture you want (*arm*, *arm64*, *x86_64*):
+```
+$ grunt dist_x86_64
+```
 
-You can access the app on localhost:3000
-
-The application will output plenty of debugging statements when running.
-
-# Cleaning / Reinstalling
-
-To remove the application from the build:
-
-Remove the launcher
-
-> $ rm out/target/product/[product name]/system/bin/OsysBE
-
-At this point, if you run mm again, the application will be reinstalled on the device. This is how to reinstall the app if you've done modifications.
-
-> $ rm -rf out/target/product/[product name]/system/Osys/BE
+- You can then push the *dist_x86_64* directory, or the directory that corresponds to your architecture, to a directory on your device.
+```
+$ adb push dist_x86_64 /data/local/tmp
+```
 
 # Contributors
 
