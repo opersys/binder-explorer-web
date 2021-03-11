@@ -76,6 +76,39 @@ $ grunt dist_x86_64
 $ adb push dist_x86_64 /data/local/tmp
 ```
 
+# User guide
+
+Connecting to the web interface
+
+If you have correctly forwarded port 3000 from your device to the emulator, you can browser (Firefox or Chrome) to connect to [http://localhost:3000](http://localhost:3000). 
+
+### Mouse functions
+
+* **Left click + drag**: Pan screen
+* **Mouse Wheel**: Zoom
+
+If Binder Explorer is working correctly, you will see a screen that looks like the following if you zoom out a bit. You can see that services are grouped together depending if they are regular system services or hardware services. The applications are grouped in the middle and they should dynamically as they get started or stopped.
+
+![Binder Explorer Fullscreen](https://github.com/opersys/binder-explorer-web/blob/master/doc_images/main_screen.png)
+
+## Tooltips
+
+Hovering over an object will show informations about the object
+
+![Tooltip details](https://github.com/opersys/binder-explorer-web/blob/master/doc_images/tooltip_detail.png)
+
+Blue circles around process represents the application-level services that the application has started. Only the service that have a Binder interface are shown that way as local service are invisible to Binder Explorer.
+
+![User service tooltip](https://github.com/opersys/binder-explorer-web/blob/master/doc_images/user_services.png)
+
+## Object dialogs
+
+Clicking on an object will open a dialog box with more details
+
+![Dialog details](https://github.com/opersys/binder-explorer-web/blob/master/doc_images/dialog_detail.png)
+
+The content of the dialog box depends on what object you click. The screenshot above captures what happens when you click on a process. Similar content is available for user services.
+
 # Contributors
 
 * François-Denis Gonthier francois-denis.gonthier@opersys.com -- main developer and maintainer
