@@ -146,7 +146,7 @@ class DataFeeder extends EventEmitter {
             debug(`Process Service stopped: ${processService.intent}, in ${processService.pid} STOPPED`);
 
             this._up2ProcessServices.delete(processService.intent);
-            this._sock.emit("processserviceremoved", FE.processService.fromClass(processService));
+            this._sock.emit("processserviceremoved", FE.ProcessService.fromClass(processService));
         }
     }
 }
